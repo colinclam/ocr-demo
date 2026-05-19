@@ -1,220 +1,1170 @@
 <!DOCTYPE html>
 <html lang="zh-HK">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <meta name="theme-color" content="#1a5276">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <title>🧯 滅火器到期追蹤</title>
-  <link rel="stylesheet" href="css/style.css">
-  <!-- Google Fonts for CJK -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>滅火器到期追蹤系統</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/5.0.4/tesseract.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html {
+            font-size: 20px;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", sans-serif;
+            background: #f5f5f5;
+            color: #1a1a1a;
+            line-height: 1.6;
+            padding-bottom: 140px;
+        }
+
+        .navbar {
+            background: white;
+            border-bottom: 1px solid #e0e0e0;
+            padding: 12px 0;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+
+        .nav-container {
+            max-width: 480px;
+            margin: 0 auto;
+            display: flex;
+            gap: 4px;
+            padding: 0 12px;
+        }
+
+        .nav-btn {
+            flex: 1;
+            padding: 12px 8px;
+            border: none;
+            background: transparent;
+            font-size: 0.9rem;
+            cursor: pointer;
+            border-bottom: 3px solid transparent;
+            transition: all 0.3s;
+            color: #666;
+        }
+
+        .nav-btn.active {
+            color: #d32f2f;
+            border-bottom-color: #d32f2f;
+            font-weight: 600;
+        }
+
+        .container {
+            max-width: 480px;
+            margin: 0 auto;
+            padding: 16px;
+        }
+
+        .page {
+            display: none;
+        }
+
+        .page.active {
+            display: block;
+        }
+
+        .status-banner {
+            background: white;
+            border-radius: 12px;
+            padding: 18px;
+            margin-bottom: 16px;
+            border-left: 6px solid #d32f2f;
+        }
+
+        .status-banner.red {
+            border-left-color: #d32f2f;
+            background: #fcebeb;
+        }
+
+        .status-banner.orange {
+            border-left-color: #f57c00;
+            background: #fff3e0;
+        }
+
+        .status-banner.green {
+            border-left-color: #388e3c;
+            background: #e8f5e9;
+        }
+
+        .status-banner h2 {
+            font-size: 1.3rem;
+            font-weight: 700;
+            margin-bottom: 4px;
+        }
+
+        .status-banner p {
+            font-size: 0.95rem;
+            opacity: 0.85;
+        }
+
+        .batch-card {
+            background: white;
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 12px;
+            border-left: 4px solid #ccc;
+        }
+
+        .batch-card.urgent {
+            border-left-color: #d32f2f;
+        }
+
+        .batch-card.warning {
+            border-left-color: #f57c00;
+        }
+
+        .batch-card.normal {
+            border-left-color: #388e3c;
+        }
+
+        .batch-card h3 {
+            font-size: 1.1rem;
+            font-weight: 700;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .batch-card .batch-info {
+            font-size: 0.95rem;
+            color: #666;
+            line-height: 1.8;
+        }
+
+        .batch-card .batch-info strong {
+            color: #1a1a1a;
+            font-weight: 600;
+        }
+
+        .bottom-actions {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: white;
+            border-top: 1px solid #e0e0e0;
+            padding: 12px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            max-width: 480px;
+            margin: 0 auto;
+            z-index: 50;
+        }
+
+        .action-btn {
+            padding: 18px;
+            border: 1px solid #d0d0d0;
+            background: white;
+            border-radius: 8px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            min-height: 64px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+        }
+
+        .action-btn:active {
+            transform: scale(0.98);
+            background: #f5f5f5;
+        }
+
+        .action-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .register-page {
+            padding: 0;
+        }
+
+        .register-steps {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 20px;
+            padding: 0 16px;
+        }
+
+        .step-dot {
+            flex: 1;
+            height: 6px;
+            background: #e0e0e0;
+            border-radius: 3px;
+            transition: all 0.3s;
+        }
+
+        .step-dot.active {
+            background: #d32f2f;
+            height: 8px;
+        }
+
+        .register-step {
+            display: none;
+            padding: 0 16px 60px;
+        }
+
+        .register-step.active {
+            display: block;
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+            to {
+                opacity: 1;
+            }
+        }
+
+        .register-step h2 {
+            font-size: 1.3rem;
+            font-weight: 700;
+            margin-bottom: 12px;
+            color: #1a1a1a;
+        }
+
+        .register-step p {
+            font-size: 0.95rem;
+            color: #666;
+            margin-bottom: 16px;
+            line-height: 1.6;
+        }
+
+        .photo-input {
+            display: none;
+        }
+
+        .camera-preview {
+            background: #f5f5f5;
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+            margin-bottom: 16px;
+            min-height: 200px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .camera-preview img {
+            max-width: 100%;
+            max-height: 200px;
+            border-radius: 8px;
+        }
+
+        .ocr-result-card {
+            background: white;
+            border-radius: 12px;
+            border: 2px solid #d32f2f;
+            padding: 20px;
+            text-align: center;
+            margin-bottom: 16px;
+        }
+
+        .ocr-result-date {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: #d32f2f;
+            margin: 12px 0;
+        }
+
+        .ocr-loading {
+            text-align: center;
+            padding: 20px;
+            color: #666;
+        }
+
+        .ocr-loading .spinner {
+            display: inline-block;
+            width: 30px;
+            height: 30px;
+            border: 3px solid #e0e0e0;
+            border-top: 3px solid #d32f2f;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 12px;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        .voice-section {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+            margin-bottom: 16px;
+        }
+
+        .voice-button {
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            border: 3px solid #d32f2f;
+            background: white;
+            color: #d32f2f;
+            font-size: 2rem;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin: 20px auto;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .voice-button:active {
+            transform: scale(0.95);
+            background: #fcebeb;
+        }
+
+        .voice-button.listening {
+            background: #d32f2f;
+            color: white;
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% {
+                box-shadow: 0 0 0 0 rgba(211, 47, 47, 0.7);
+            }
+            50% {
+                box-shadow: 0 0 0 20px rgba(211, 47, 47, 0);
+            }
+        }
+
+        .voice-result {
+            background: #e8f5e9;
+            border-left: 4px solid #388e3c;
+            border-radius: 8px;
+            padding: 14px;
+            margin: 16px 0;
+            font-size: 1.1rem;
+            color: #1a1a1a;
+        }
+
+        .voice-status {
+            font-size: 0.95rem;
+            color: #666;
+            margin: 12px 0;
+        }
+
+        .final-summary {
+            background: white;
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 16px;
+        }
+
+        .summary-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 0;
+            border-bottom: 1px solid #e0e0e0;
+            font-size: 0.95rem;
+        }
+
+        .summary-item:last-child {
+            border-bottom: none;
+        }
+
+        .summary-label {
+            color: #666;
+        }
+
+        .summary-value {
+            font-weight: 600;
+            color: #1a1a1a;
+        }
+
+        .edit-button {
+            color: #d32f2f;
+            cursor: pointer;
+            font-size: 0.85rem;
+            text-decoration: underline;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 8px;
+            margin-top: 16px;
+        }
+
+        .btn-primary {
+            flex: 1;
+            padding: 16px;
+            background: #d32f2f;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            min-height: 56px;
+        }
+
+        .btn-primary:active {
+            transform: scale(0.98);
+            opacity: 0.9;
+        }
+
+        .btn-primary:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .btn-secondary {
+            flex: 1;
+            padding: 16px;
+            background: #f5f5f5;
+            color: #1a1a1a;
+            border: 1px solid #d0d0d0;
+            border-radius: 8px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            min-height: 56px;
+        }
+
+        .btn-secondary:active {
+            transform: scale(0.98);
+            background: #e0e0e0;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 200;
+            align-items: flex-end;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            width: 100%;
+            max-width: 480px;
+            border-radius: 16px 16px 0 0;
+            padding: 24px;
+            max-height: 90vh;
+            overflow-y: auto;
+            animation: slideUp 0.3s ease;
+        }
+
+        @keyframes slideUp {
+            from {
+                transform: translateY(100%);
+            }
+            to {
+                transform: translateY(0);
+            }
+        }
+
+        .modal-header {
+            font-size: 1.2rem;
+            font-weight: 700;
+            margin-bottom: 16px;
+        }
+
+        .modal-preview {
+            background: #f5f5f5;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 14px;
+            margin: 16px 0;
+            font-size: 0.9rem;
+            line-height: 1.7;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+
+        .modal-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 16px;
+        }
+
+        .modal-btn {
+            flex: 1;
+            padding: 14px;
+            border: none;
+            border-radius: 8px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .modal-btn-primary {
+            background: #d32f2f;
+            color: white;
+        }
+
+        .modal-btn-primary:active {
+            transform: scale(0.98);
+            opacity: 0.9;
+        }
+
+        .modal-btn-secondary {
+            background: #f5f5f5;
+            color: #1a1a1a;
+        }
+
+        .modal-btn-secondary:active {
+            transform: scale(0.98);
+            background: #e0e0e0;
+        }
+
+        .toast {
+            position: fixed;
+            bottom: 160px;
+            left: 16px;
+            right: 16px;
+            background: #1a1a1a;
+            color: white;
+            padding: 14px 16px;
+            border-radius: 8px;
+            text-align: center;
+            font-size: 0.9rem;
+            z-index: 150;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .help-section {
+            background: white;
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 12px;
+        }
+
+        .help-section h3 {
+            font-size: 1.05rem;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+
+        .help-section p {
+            font-size: 0.95rem;
+            color: #666;
+            line-height: 1.7;
+        }
+
+        .help-section li {
+            font-size: 0.95rem;
+            color: #666;
+            padding: 8px 0;
+            padding-left: 16px;
+            position: relative;
+        }
+
+        .help-section li:before {
+            content: "→";
+            position: absolute;
+            left: 0;
+            color: #d32f2f;
+            font-weight: 600;
+        }
+
+        @media (max-width: 480px) {
+            html {
+                font-size: 18px;
+            }
+
+            .container {
+                padding: 12px;
+            }
+        }
+    </style>
 </head>
 <body>
 
-<!-- ── App Header ─────────────────────────────────────────────────────────── -->
-<header class="app-header">
-  <h1>🧯 滅火器到期追蹤</h1>
-  <p>批次管理 · 到期警告 · 位置追蹤</p>
-</header>
-
-<!-- ── Pages ──────────────────────────────────────────────────────────────── -->
-
-<!-- Page: Home -->
-<section class="page" id="page-home">
-  <div id="summary-bar"></div>
-
-  <!-- Action buttons -->
-  <div class="action-bar">
-    <button class="btn btn-primary btn-disabled" id="share-btn" disabled>
-      <span class="btn-icon">💬</span>生成微信提醒 &amp; 分享
-    </button>
-    <button class="btn btn-green" id="export-btn">
-      <span class="btn-icon">📊</span>匯出 Excel（3個分頁）
-    </button>
-  </div>
-
-  <hr class="divider">
-
-  <!-- Alert list -->
-  <div id="alert-list"></div>
-</section>
-
-<!-- Page: Register -->
-<section class="page" id="page-register">
-  <h2 class="page-title">📝 登記新批次</h2>
-
-  <!-- Photo / OCR -->
-  <div class="form-group">
-    <label>📷 拍照識別到期日</label>
-    <button class="btn btn-outline" onclick="document.getElementById('photo-input').click()">
-      <span class="btn-icon">📷</span>拍照 / 選擇圖片
-    </button>
-    <input type="file" id="photo-input" accept="image/*" capture="environment" style="display:none">
-    <img id="photo-preview" alt="預覽" class="hidden">
-    <p id="ocr-progress"></p>
-    <div class="ocr-result-box hidden" id="ocr-result-box">
-      <strong>OCR 識別結果：</strong>
-      <div id="ocr-raw"></div>
+<div class="navbar">
+    <div class="nav-container">
+        <button class="nav-btn active" onclick="showPage('home')">📋 首頁</button>
+        <button class="nav-btn" onclick="showPage('register')">📝 登記</button>
+        <button class="nav-btn" onclick="showPage('help')">❔ 說明</button>
     </div>
-  </div>
-
-  <form id="register-form" autocomplete="off">
-    <div class="form-group">
-      <label for="field-expiry">📅 到期日 <span style="color:#c0392b">*</span></label>
-      <input type="date" id="field-expiry" name="expiry" required>
-    </div>
-
-    <div class="form-group">
-      <label for="field-type">🧯 類型 <span style="color:#c0392b">*</span></label>
-      <select id="field-type" name="type">
-        <option value="乾粉">乾粉</option>
-        <option value="CO2">CO2</option>
-        <option value="泡沫">泡沫</option>
-        <option value="水霧">水霧</option>
-      </select>
-    </div>
-
-    <div class="form-group">
-      <label for="field-qty">🔢 數量 <span style="color:#c0392b">*</span></label>
-      <input type="number" id="field-qty" name="qty"
-             inputmode="numeric" min="1" max="9999"
-             placeholder="請輸入數量" required>
-    </div>
-
-    <div class="form-group">
-      <label for="field-location">📍 位置 <span style="color:#c0392b">*</span></label>
-      <input type="text" id="field-location" name="location"
-             placeholder="例：三樓走廊" required>
-      <button type="button" class="btn btn-outline" id="voice-btn"
-              onclick="startVoiceInput('field-location')" style="margin-top:8px">
-        🎤 語音輸入位置
-      </button>
-    </div>
-
-    <div class="form-group">
-      <label for="field-serial">🔖 Serial號（可選）</label>
-      <input type="text" id="field-serial" name="serial"
-             inputmode="numeric" placeholder="7位數字（OCR自動填入）">
-    </div>
-
-    <div class="form-group">
-      <label for="field-supplier">🏭 供應商（可選）</label>
-      <input type="text" id="field-supplier" name="supplier" placeholder="供應商名稱">
-    </div>
-
-    <button type="submit" class="btn btn-green" style="margin-top:8px">
-      <span class="btn-icon">✅</span>確認登記
-    </button>
-  </form>
-</section>
-
-<!-- Page: Info -->
-<section class="page" id="page-info">
-  <h2 class="page-title">ℹ️ 說明 &amp; 幫助</h2>
-
-  <div class="info-card">
-    <h3>⚠️ 警告標準</h3>
-    <ul>
-      <li>🚨 <strong>緊急</strong>：1–7天到期，須本週內更換</li>
-      <li>⚠️ <strong>準備</strong>：8–14天到期，須兩週內安排</li>
-      <li>✅ <strong>正常</strong>：15天以上，定期複查</li>
-    </ul>
-  </div>
-
-  <div class="info-card">
-    <h3>📷 OCR拍照提示</h3>
-    <ul>
-      <li>對準滅火器標籤上的日期</li>
-      <li>確保光線充足、對焦清晰</li>
-      <li>日期格式：DD-MM-YYYY</li>
-      <li>Serial號：7位數字</li>
-    </ul>
-  </div>
-
-  <div class="info-card">
-    <h3>💬 微信分享</h3>
-    <p>點擊「生成微信提醒」，系統自動整理緊急及準備批次的位置資訊，複製後直接貼入微信群組發送。</p>
-  </div>
-
-  <div class="info-card">
-    <h3>📊 Excel匯出</h3>
-    <ul>
-      <li><strong>位置追蹤</strong>：每個位置的詳細記錄</li>
-      <li><strong>需要行動</strong>：只顯示緊急及準備批次</li>
-      <li><strong>批次總覽</strong>：所有批次的完整資料</li>
-    </ul>
-  </div>
-
-  <div class="info-card">
-    <h3>💾 資料儲存</h3>
-    <p>所有資料儲存於本機瀏覽器（LocalStorage），清除瀏覽器資料會重置記錄。建議定期匯出Excel備份。</p>
-    <button class="btn btn-outline" onclick="resetData()" style="margin-top:10px;font-size:.9rem;padding:10px">
-      🔄 重置至示範資料
-    </button>
-  </div>
-
-  <p style="text-align:center;color:var(--muted);font-size:.8rem;margin-top:16px">
-    ocr-fe-demo · 示範用途 · 資料均為虛構
-  </p>
-</section>
-
-<!-- ── Bottom Navigation ────────────────────────────────────────────────────── -->
-<nav class="bottom-nav">
-  <button class="nav-btn active" data-page="page-home">
-    <span class="nav-icon">🏠</span>
-    <span>主頁</span>
-  </button>
-  <button class="nav-btn" data-page="page-register">
-    <span class="nav-icon">➕</span>
-    <span>登記</span>
-  </button>
-  <button class="nav-btn" data-page="page-info">
-    <span class="nav-icon">ℹ️</span>
-    <span>說明</span>
-  </button>
-</nav>
-
-<!-- ── Share Modal ─────────────────────────────────────────────────────────── -->
-<div class="modal-overlay hidden" id="share-modal">
-  <div class="modal-sheet">
-    <div class="modal-header">
-      <h2>💬 微信提醒預覽</h2>
-      <button class="modal-close-btn" id="modal-close" aria-label="關閉">✕</button>
-    </div>
-    <pre id="share-preview-text"></pre>
-    <button class="btn btn-primary" id="modal-confirm-share">
-      <span class="btn-icon">📤</span>分享 / 複製訊息
-    </button>
-    <button class="btn btn-outline" id="modal-close-btn2" onclick="closeShareModal()">
-      取消
-    </button>
-  </div>
 </div>
 
-<!-- ── Scripts ─────────────────────────────────────────────────────────────── -->
-<!-- SheetJS for Excel export -->
-<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
-<!-- Tesseract.js for OCR -->
-<script src="https://cdn.jsdelivr.net/npm/tesseract.js@4/dist/tesseract.min.js"></script>
+<div class="container">
 
-<script src="js/data.js"></script>
-<script src="js/share.js"></script>
-<script src="js/ocr.js"></script>
-<script src="js/excel.js"></script>
-<script src="js/app.js"></script>
+    <div id="page-home" class="page active">
+        <div class="status-banner red" id="status-banner">
+            <h2>🚨 需要檢查</h2>
+            <p>有 <strong id="urgent-count">1</strong> 個批次需要立即檢查</p>
+        </div>
+        <div id="batches-container"></div>
+    </div>
+
+    <div id="page-register" class="page register-page">
+        <div class="register-steps">
+            <div class="step-dot active"></div>
+            <div class="step-dot"></div>
+            <div class="step-dot"></div>
+        </div>
+
+        <div id="step-1" class="register-step active">
+            <h2>📸 掃描日期標籤</h2>
+            <p>請對準滅火器上的日期標籤，點「拍照」。</p>
+            
+            <div class="camera-preview" id="camera-preview">
+                <span id="preview-placeholder">拍照後會顯示在這裡</span>
+                <img id="preview-image" style="display: none;">
+            </div>
+
+            <input type="file" id="camera-input" class="photo-input" accept="image/*" capture="environment" onchange="handlePhotoCapture(event)">
+
+            <div class="btn-group">
+                <button class="btn-primary" onclick="openCamera()">📷 拍照</button>
+                <button class="btn-secondary" onclick="goToStep(2)">✏️ 手動輸入</button>
+            </div>
+        </div>
+
+        <div id="step-2" class="register-step">
+            <h2>⏰ 確認日期 & 🎤 説位置</h2>
+            <p>OCR 已識別到期日期，現在請説出存放位置。</p>
+
+            <div class="ocr-result-card">
+                <div>到期日期</div>
+                <div class="ocr-result-date" id="ocr-date">2026-05-24</div>
+                <button class="edit-button" onclick="goToStep(1)">🔄 重新掃描</button>
+            </div>
+
+            <div class="voice-section">
+                <div>📍 説出存放位置</div>
+                <p style="font-size: 0.85rem; color: #999; margin: 8px 0;">例如：「三樓走廊」或「三樓走廊十個」</p>
+                
+                <div class="voice-button" id="voice-btn" onclick="toggleVoiceInput()">🎤</div>
+                
+                <div class="voice-status" id="voice-status">點擊麥克風開始説話</div>
+                
+                <div id="voice-result-container" style="display: none;">
+                    <div class="voice-result" id="voice-result"></div>
+                    <div style="text-align: center; margin-top: 12px;">
+                        <button class="edit-button" onclick="toggleVoiceInput()">🎤 重新説話</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="btn-group">
+                <button class="btn-primary" id="step2-next-btn" onclick="goToStep(3)" disabled>✓ 確認</button>
+            </div>
+        </div>
+
+        <div id="step-3" class="register-step">
+            <h2>✓ 確認所有資訊</h2>
+            <p>請確認以下資訊無誤，點「完成登記」。</p>
+
+            <div class="final-summary">
+                <div class="summary-item">
+                    <span class="summary-label">⏰ 到期日期</span>
+                    <span class="summary-value" id="final-date">2026-05-24</span>
+                </div>
+                <div class="summary-item">
+                    <span class="summary-label">📍 存放位置</span>
+                    <span class="summary-value" id="final-location">三樓走廊</span>
+                </div>
+                <div class="summary-item">
+                    <span class="summary-label">🔥 滅火器類型</span>
+                    <span class="summary-value">
+                        <select id="final-type" style="padding: 6px; border: 1px solid #d0d0d0; border-radius: 4px; font-size: 0.9rem;">
+                            <option value="">選擇類型</option>
+                            <option value="乾粉">乾粉</option>
+                            <option value="泡沫">泡沫</option>
+                            <option value="CO₂">CO₂</option>
+                        </select>
+                    </span>
+                </div>
+                <div class="summary-item">
+                    <span class="summary-label">📊 數量</span>
+                    <span class="summary-value">
+                        <input type="number" id="final-quantity" value="1" min="1" style="width: 60px; padding: 6px; border: 1px solid #d0d0d0; border-radius: 4px; text-align: center;">
+                    </span>
+                </div>
+            </div>
+
+            <div class="btn-group">
+                <button class="btn-primary" onclick="submitRegistration()">✓ 完成登記</button>
+                <button class="btn-secondary" onclick="goToStep(1)">← 返回</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="page-help" class="page">
+        <div style="margin-bottom: 16px;">
+            <h2 style="font-size: 1.3rem; font-weight: 700;">ℹ️ 說明 & 幫助</h2>
+        </div>
+
+        <div class="help-section">
+            <h3>📋 本系統用途</h3>
+            <p>幫助前線人員快速查看和登記滅火器的到期情況，確保工作場所的安全。</p>
+        </div>
+
+        <div class="help-section">
+            <h3>🎯 怎樣使用？</h3>
+            <ul style="list-style: none; margin: 0;">
+                <li><strong>第 1 步：</strong>打開「首頁」，查看滅火器狀況</li>
+                <li><strong>第 2 步：</strong>點「分享到 WeChat」，通知小組</li>
+                <li><strong>第 3 步：</strong>點「登記」，添加新批次（3 步：拍照 → 説位置 → 完成）</li>
+            </ul>
+        </div>
+
+        <div class="help-section">
+            <h3>📸 拍照掃描</h3>
+            <p>對準滅火器標籤上的日期，點「拍照」。系統會自動識別日期，若不準確可手動輸入或重新掃描。</p>
+        </div>
+
+        <div class="help-section">
+            <h3>🎤 語音輸入位置</h3>
+            <p>點麥克風按鈕，説出位置（例如「三樓走廊」），系統會自動識別。識別不準可重新説話。</p>
+        </div>
+
+        <div class="help-section">
+            <h3>🔴 三種狀態</h3>
+            <p>🔴 <strong>紅色 = 緊急（1-7 天）</strong><br/>需要立即檢查</p>
+            <p style="margin-top: 8px;">🟠 <strong>橙色 = 準備（8-14 天）</strong><br/>需要在兩週內檢查</p>
+            <p style="margin-top: 8px;">🟢 <strong>綠色 = 正常（15+ 天）</strong><br/>暫不用急</p>
+        </div>
+
+        <div style="height: 20px;"></div>
+    </div>
+
+</div>
+
+<div class="bottom-actions">
+    <button class="action-btn" onclick="showShareModal()" id="share-btn">
+        <span>💬</span>
+        <span>分享到 WeChat</span>
+    </button>
+    <button class="action-btn" onclick="exportCSV()">
+        <span>📊</span>
+        <span>匯出 CSV</span>
+    </button>
+</div>
+
+<div id="share-modal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">📋 分享到 WeChat</div>
+        <p style="font-size: 0.95rem; color: #666; margin-bottom: 12px;">預覽訊息內容：</p>
+        <div class="modal-preview" id="share-preview"></div>
+        <div class="modal-actions">
+            <button class="modal-btn modal-btn-primary" onclick="copyToClipboard()">✓ 複製訊息</button>
+            <button class="modal-btn modal-btn-secondary" onclick="closeShareModal()">取消</button>
+        </div>
+        <p style="font-size: 0.85rem; color: #999; text-align: center; margin-top: 12px;">複製後，打開 WeChat 手動選擇分享對象</p>
+    </div>
+</div>
 
 <script>
-// Reset helper (called from info page)
-function resetData() {
-  if (confirm('確認重置？現有資料將全部清除，還原至示範數據。')) {
-    localStorage.removeItem('ocr-fe-demo-batches');
-    showToast('✅ 已重置至示範資料', 'success');
-    showPage('page-home');
-  }
-}
+    let batches = [
+        {
+            id: 'A',
+            type: '乾粉',
+            quantity: 30,
+            expDate: '2026-05-24',
+            locations: ['三樓走廊（10 個）', '二樓大堂（10 個）', '地下車場（10 個）']
+        },
+        {
+            id: 'B',
+            type: '泡沫',
+            quantity: 20,
+            expDate: '2026-06-15',
+            locations: ['一樓消防房（20 個）']
+        },
+        {
+            id: 'C',
+            type: 'CO₂',
+            quantity: 15,
+            expDate: '2026-07-10',
+            locations: ['二樓走廊（15 個）']
+        }
+    ];
+
+    let registrationData = {
+        date: '',
+        location: '',
+        type: '',
+        quantity: 1
+    };
+
+    let currentStep = 1;
+    let voiceRecognition = null;
+    let isListening = false;
+
+    function showPage(pageName) {
+        document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+        document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+        
+        document.getElementById(`page-${pageName}`).classList.add('active');
+        event.target.classList.add('active');
+        
+        if (pageName === 'home') {
+            renderBatches();
+        }
+        
+        if (pageName === 'register') {
+            resetRegistration();
+        }
+    }
+
+    function goToStep(stepNum) {
+        document.querySelectorAll('.register-step').forEach(s => s.classList.remove('active'));
+        document.querySelectorAll('.step-dot').forEach(d => d.classList.remove('active'));
+
+        document.getElementById(`step-${stepNum}`).classList.add('active');
+        
+        for (let i = 1; i <= stepNum; i++) {
+            document.querySelectorAll('.step-dot')[i - 1].classList.add('active');
+        }
+
+        currentStep = stepNum;
+
+        if (stepNum === 2) {
+            checkStep2Ready();
+        }
+
+        window.scrollTo(0, 0);
+    }
+
+    function openCamera() {
+        document.getElementById('camera-input').click();
+    }
+
+    function handlePhotoCapture(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const img = e.target.result;
+            document.getElementById('preview-image').src = img;
+            document.getElementById('preview-image').style.display = 'block';
+            document.getElementById('preview-placeholder').style.display = 'none';
+
+            performOCR(img);
+        };
+        reader.readAsDataURL(file);
+    }
+
+    async function performOCR(imageDataUrl) {
+        showOCRLoading();
+
+        try {
+            const { createWorker } = Tesseract;
+            const worker = await createWorker('chi_sim');
+            
+            const result = await worker.recognize(imageDataUrl);
+            const text = result.data.text;
+
+            const dateMatch = text.match(/(\d{4}[\/\-]\d{1,2}[\/\-]\d{1,2})/);
+            
+            if (dateMatch) {
+                let dateStr = dateMatch[0].replace(/\//g, '-');
+                const parts = dateStr.split('-');
+                
+                if (parts[0].length === 4) {
+                    dateStr = `${parts[0]}-${parts[1].padStart(2, '0')}-${parts[2].padStart(2, '0')}`;
+                } else {
+                    dateStr = `${parts[2].padStart(2, '0')}-${parts[0].padStart(2, '0')}-${parts[1].padStart(2, '0')}`;
+                }
+
+                registrationData.date = dateStr;
+                document.getElementById('ocr-date').textContent = dateStr;
+                document.getElementById('final-date').textContent = dateStr;
+
+                goToStep(2);
+                speak('識別到期日為 ' + dateStr.replace(/-/g, ' 年 ') + ' 日。請説出存放位置。');
+            } else {
+                showToast('❌ 未能識別日期，請手動輸入或重新拍照');
+                goToStep(2);
+            }
+
+            await worker.terminate();
+        } catch (error) {
+            console.error('OCR Error:', error);
+            showToast('❌ OCR 失敗，請手動輸入或重新拍照');
+            goToStep(2);
+        }
+    }
+
+    function showOCRLoading() {
+        const preview = document.getElementById('camera-preview');
+        preview.innerHTML = '<div class="ocr-loading"><div class="spinner"></div><div>正在識別日期...</div></div>';
+    }
+
+    function initVoiceRecognition() {
+        if (!voiceRecognition) {
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            if (!SpeechRecognition) {
+                showToast('❌ 你的瀏覽器不支持語音識別');
+                return false;
+            }
+            
+            voiceRecognition = new SpeechRecognition();
+            voiceRecognition.lang = 'zh-HK';
+            voiceRecognition.continuous = false;
+            voiceRecognition.interimResults = false;
+
+            voiceRecognition.onstart = () => {
+                isListening = true;
+                document.getElementById('voice-btn').classList.add('listening');
+                document.getElementById('voice-status').textContent = '正在聆聽...';
+            };
+
+            voiceRecognition.onresult = (event) => {
+                const transcript = event.results[0][0].transcript;
+                registrationData.location = transcript;
+                document.getElementById('voice-result').textContent = transcript;
+                document.getElementById('voice-result-container').style.display = 'block';
+                document.getElementById('final-location').textContent = transcript;
+                checkStep2Ready();
+                speak('識別到：' + transcript);
+            };
+
+            voiceRecognition.onerror = (event) => {
+                showToast('❌ 語音識別失敗：' + event.error);
+                speak('語音識別失敗，請重試');
+                stopVoiceInput();
+            };
+
+            voiceRecognition.onend = () => {
+                stopVoiceInput();
+            };
+        }
+
+        return true;
+    }
+
+    function toggleVoiceInput() {
+        if (!isListening) {
+            if (initVoiceRecognition()) {
+                voiceRecognition.start();
+            }
+        } else {
+            stopVoiceInput();
+        }
+    }
+
+    function stopVoiceInput() {
+        isListening = false;
+        document.getElementById('voice-btn').classList.remove('listening');
+        document.getElementById('voice-status').textContent = '按麥克風開始説話';
+        if (voiceRecognition) {
+            voiceRecognition.stop();
+        }
+    }
+
+    function checkStep2Ready() {
+        const hasLocation = registrationData.location.trim() !== '';
+        document.getElementById('step2-next-btn').disabled = !hasLocation;
+    }
+
+    function submitRegistration() {
+        const type = document.getElementById('final-type').value;
+        const quantity = document.getElementById('final-quantity').value;
+
+        if (!type) {
+            showToast('❌ 請選擇滅火器類型');
+            return;
+        }
+
+        registrationData.type = type;
+        registrationData.quantity = parseInt(quantity);
+
+        const newId = String.fromCharCode(65 + batches.length);
+        batches.push({
+            id: newId,
+            type: type,
+            quantity: registrationData.quantity,
+            expDate: registrationData.date,
+            locations: [registrationData.location]
+        });
+
+        showToast('✓ 成功登記新批次！');
+        speak('已經成功登記新批次！');
+
+        setTimeout(() => {
+            resetRegistration();
+            showPage('home');
+        }, 1500);
+    }
+
+    function resetRegistration() {
+        registrationData = { date: '', location: '', type: '', quantity: 1 };
+        document.getElementById('camera-input').value = '';
+        document.getElementById('preview-image').style.display = 'none';
+        document.getElementById('preview-placeholder').style.display = 'block';
+        document.getElementById('voice-result-container').style.display = 'none';
+        document.getElementById('final-type').value = '';
+        document.getElementById('final-quantity').value = '1';
+        goToStep(1);
+    }
+
+    function getDaysUntilExpiry(expDate) {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const exp = new Date(expDate);
+        exp.setHours(0, 0, 0, 0);
+        const diff = exp - today;
+        return Math.ceil(diff / (1000 * 60 * 60 * 24));
+    }
+
+    function getStatus(days) {
+        if (days <= 7) return 'urgent';
+        if (days <= 14) return 'warning';
+        return 'normal';
+    }
+
+    function getStatusEmoji(status) {
+        if (status === 'urgent') return '🚨';
+        if (status === 'warning') return '⚠️';
+        return '✅';
+    }
+
+    function renderBatches() {
+        const container = document.getElementById('batches-container');
+        container.innerHTML = '';
+
+        let urgentCount = 0;
+        let bannerStatus = 'green';
+
+        batches.forEach(batch => {
+            const days = getDaysUntilExpiry(batch.expDate);
+            const status = getStatus(days);
+            const emoji = getStatusEmoji(status);
+
+            if (status === 'urgent') {
+                urgentCount++;
+                bannerStatus = 'red';
+            } else if (status === 'warning' && bannerStatus !== 'red') {
+                bannerStatus = 'orange';
+            }
+
+            const card = document.createElement('div');
+            card.className = `batch-card ${status}`;
+            card.innerHTML = `
+                <h3>${emoji} BATCH-${batch.id} ${batch.type}</h3>
+                <div class="batch-info">
+                    <div>📊 數量：<strong>${batch.quantity} 個</strong></div>
+                    <div>⏰ 到期：<strong>${batch.expDate}</strong> | 剩餘：<strong>${days} 天</strong></div>
+                    <div>📍 位置：</div>
+                    ${batch.locations.map(loc => `<div style="margin-left: 16px;">• ${loc}</div>`).join('')}
+                </div>
+            `;
+            container.appendChild(card);
+        });
+
+        const banner = document.getElementById('status-banner');
+        banner.className = `status-banner ${bannerStatus}`;
+        
+        if (bannerStatus === 'red') {
+            banner.innerHTML = `<h2>🚨 需要檢查</h2><p>有 <strong>${urgentCount}</strong> 個批次需要立即檢查</p>`;
+        } else if (bannerStatus === 'orange') {
+            const warningCount = batches.filter(b => getStatus(getDaysUntilExpiry(b.expDate)) === 'warning').length;
+            banner.innerHTML = `<h2>⚠️ 注意</h2><p>有 <strong>${warningCount}</strong> 個批次需要留意</p>`;
+        } else {
+            banner.innerHTML = `<h2>✅ 正常</h2><p>所有批次狀況良好</p>`;
+        }
+    }
+
+    function showShareModal() {
+        const preview = batches.map(batch => {
+            const days = getDaysUntilExpiry(batch.expDate);
+            const status = getStatus(days);
+            const emoji = getStatusEmoji(status);
+            return `${emoji} BATCH-${batch.id} ${batch.type}×${batch.quantity} [${days}天]`;
+        }).join('\n');
+
+        const content = `📋 滅火器到期檢查提醒\n\n${preview}\n\n👉 詳細資訊請查看系統`;
+
+        document.getElementById('share-preview').textContent = content;
+        document.getElementById('share-modal').classList.add('active');
+    }
+
+    function closeShareModal() {
+        document.getElementById('share-modal').classList.remove('active');
+    }
+
+    function copyToClipboard() {
+        const text = document.getElementById('share-preview').textContent;
+        navigator.clipboard.writeText(text).then(() => {
+            closeShareModal();
+            showToast('✓ 已複製！請打開 WeChat 分享');
+            speak('已經成功複製，請打開 WeChat 分享給你的小組');
+        }).catch(() => {
+            showToast('❌ 複製失敗，請重試');
+        });
+    }
+
+    function exportCSV() {
+        const csvContent = 'data:text/csv;charset=utf-8,%EF%BB%BF批次,類型,數量,到期日,位置\n' +
+            batches.map(b => `BATCH-${b.id},${b.type},${b.quantity},${b.expDate},${b.locations.join('; ')}`).join('\n');
+
+        const link = document.createElement('a');
+        link.setAttribute('href', csvContent);
+        link.setAttribute('download', 'batches.csv');
+        link.click();
+
+        showToast('✓ 已匯出 CSV 檔案');
+        speak('已經成功匯出檔案');
+    }
+
+    function showToast(message) {
+        const toast = document.createElement('div');
+        toast.className = 'toast';
+        toast.textContent = message;
+        document.body.appendChild(toast);
+
+        setTimeout(() => {
+            toast.remove();
+        }, 3000);
+    }
+
+    function speak(text) {
+        if ('speechSynthesis' in window) {
+            speechSynthesis.cancel();
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.lang = 'zh-HK';
+            utterance.rate = 0.9;
+            utterance.pitch = 1.0;
+            speechSynthesis.speak(utterance);
+        }
+    }
+
+    window.addEventListener('load', () => {
+        renderBatches();
+        speak('歡迎使用滅火器追蹤系統');
+    });
 </script>
 
 </body>
