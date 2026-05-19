@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#1a5276">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>🧯 滅火器到期追蹤</title>
+  <link rel="stylesheet" href="css/style.css">
+  <!-- Google Fonts for CJK -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body>
+
+<!-- ── App Header ─────────────────────────────────────────────────────────── -->
+<header class="app-header">
+  <h1>🧯 滅火器到期追蹤</h1>
+  <p>批次管理 · 到期警告 · 位置追蹤</p>
+</header>
+
+<!-- ── Pages ──────────────────────────────────────────────────────────────── -->
+
+<!-- Page: Home -->
+<section class="page" id="page-home">
+  <div id="summary-bar"></div>
+
+  <!-- Action buttons -->
+  <div class="action-bar">
+    <button class="btn btn-primary btn-disabled" id="share-btn" disabled>
+      <span class="btn-icon">💬</span>生成微信提醒 &amp; 分享
+    </button>
+    <button class="btn btn-green" id="export-btn">
+      <span class="btn-icon">📊</span>匯出 Excel（3個分頁）
+    </button>
+  </div>
+
+  <hr class="divider">
+
+  <!-- Alert list -->
+  <div id="alert-list"></div>
+</section>
+
+<!-- Page: Register -->
+<section class="page" id="page-register">
+  <h2 class="page-title">📝 登記新批次</h2>
+
+  <!-- Photo / OCR -->
+  <div class="form-group">
+    <label>📷 拍照識別到期日</label>
+    <button class="btn btn-outline" onclick="document.getElementById('photo-input').click()">
+      <span class="btn-icon">📷</span>拍照 / 選擇圖片
+    </button>
+    <input type="file" id="photo-input" accept="image/*" capture="environment" style="display:none">
+    <img id="photo-preview" alt="預覽" class="hidden">
+    <p id="ocr-progress"></p>
+    <div class="ocr-result-box hidden" id="ocr-result-box">
+      <strong>OCR 識別結果：</strong>
+      <div id="ocr-raw"></div>
+    </div>
+  </div>
+
+  <form id="register-form" autocomplete="off">
+    <div class="form-group">
+      <label for="field-expiry">📅 到期日 <span style="color:#c0392b">*</span></label>
+      <input type="date" id="field-expiry" name="expiry" required>
+    </div>
+
+    <div class="form-group">
+      <label for="field-type">🧯 類型 <span style="color:#c0392b">*</span></label>
+      <select id="field-type" name="type">
+        <option value="乾粉">乾粉</option>
+        <option value="CO2">CO2</option>
+        <option value="泡沫">泡沫</option>
+        <option value="水霧">水霧</option>
+      </select>
+    </div>
+
+    <div class="form-group">
+      <label for="field-qty">🔢 數量 <span style="color:#c0392b">*</span></label>
+      <input type="number" id="field-qty" name="qty"
+             inputmode="numeric" min="1" max="9999"
+             placeholder="請輸入數量" required>
+    </div>
+
+    <div class="form-group">
+      <label for="field-location">📍 位置 <span style="color:#c0392b">*</span></label>
+      <input type="text" id="field-location" name="location"
+             placeholder="例：三樓走廊" required>
+      <button type="button" class="btn btn-outline" id="voice-btn"
+              onclick="startVoiceInput('field-location')" style="margin-top:8px">
+        🎤 語音輸入位置
+      </button>
+    </div>
+
+    <div class="form-group">
+      <label for="field-serial">🔖 Serial號（可選）</label>
+      <input type="text" id="field-serial" name="serial"
+             inputmode="numeric" placeholder="7位數字（OCR自動填入）">
+    </div>
+
+    <div class="form-group">
+      <label for="field-supplier">🏭 供應商（可選）</label>
+      <input type="text" id="field-supplier" name="supplier" placeholder="供應商名稱">
+    </div>
+
+    <button type="submit" class="btn btn-green" style="margin-top:8px">
+      <span class="btn-icon">✅</span>確認登記
+    </button>
+  </form>
+</section>
+
+<!-- Page: Info -->
+<section class="page" id="page-info">
+  <h2 class="page-title">ℹ️ 說明 &amp; 幫助</h2>
+
+  <div class="info-card">
+    <h3>⚠️ 警告標準</h3>
+    <ul>
+      <li>🚨 <strong>緊急</strong>：1–7天到期，須本週內更換</li>
+      <li>⚠️ <strong>準備</strong>：8–14天到期，須兩週內安排</li>
+      <li>✅ <strong>正常</strong>：15天以上，定期複查</li>
+    </ul>
+  </div>
+
+  <div class="info-card">
+    <h3>📷 OCR拍照提示</h3>
+    <ul>
+      <li>對準滅火器標籤上的日期</li>
+      <li>確保光線充足、對焦清晰</li>
+      <li>日期格式：DD-MM-YYYY</li>
+      <li>Serial號：7位數字</li>
+    </ul>
+  </div>
+
+  <div class="info-card">
+    <h3>💬 微信分享</h3>
+    <p>點擊「生成微信提醒」，系統自動整理緊急及準備批次的位置資訊，複製後直接貼入微信群組發送。</p>
+  </div>
+
+  <div class="info-card">
+    <h3>📊 Excel匯出</h3>
+    <ul>
+      <li><strong>位置追蹤</strong>：每個位置的詳細記錄</li>
+      <li><strong>需要行動</strong>：只顯示緊急及準備批次</li>
+      <li><strong>批次總覽</strong>：所有批次的完整資料</li>
+    </ul>
+  </div>
+
+  <div class="info-card">
+    <h3>💾 資料儲存</h3>
+    <p>所有資料儲存於本機瀏覽器（LocalStorage），清除瀏覽器資料會重置記錄。建議定期匯出Excel備份。</p>
+    <button class="btn btn-outline" onclick="resetData()" style="margin-top:10px;font-size:.9rem;padding:10px">
+      🔄 重置至示範資料
+    </button>
+  </div>
+
+  <p style="text-align:center;color:var(--muted);font-size:.8rem;margin-top:16px">
+    ocr-fe-demo · 示範用途 · 資料均為虛構
+  </p>
+</section>
+
+<!-- ── Bottom Navigation ────────────────────────────────────────────────────── -->
+<nav class="bottom-nav">
+  <button class="nav-btn active" data-page="page-home">
+    <span class="nav-icon">🏠</span>
+    <span>主頁</span>
+  </button>
+  <button class="nav-btn" data-page="page-register">
+    <span class="nav-icon">➕</span>
+    <span>登記</span>
+  </button>
+  <button class="nav-btn" data-page="page-info">
+    <span class="nav-icon">ℹ️</span>
+    <span>說明</span>
+  </button>
+</nav>
+
+<!-- ── Share Modal ─────────────────────────────────────────────────────────── -->
+<div class="modal-overlay hidden" id="share-modal">
+  <div class="modal-sheet">
+    <div class="modal-header">
+      <h2>💬 微信提醒預覽</h2>
+      <button class="modal-close-btn" id="modal-close" aria-label="關閉">✕</button>
+    </div>
+    <pre id="share-preview-text"></pre>
+    <button class="btn btn-primary" id="modal-confirm-share">
+      <span class="btn-icon">📤</span>分享 / 複製訊息
+    </button>
+    <button class="btn btn-outline" id="modal-close-btn2" onclick="closeShareModal()">
+      取消
+    </button>
+  </div>
+</div>
+
+<!-- ── Scripts ─────────────────────────────────────────────────────────────── -->
+<!-- SheetJS for Excel export -->
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+<!-- Tesseract.js for OCR -->
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@4/dist/tesseract.min.js"></script>
+
+<script src="js/data.js"></script>
+<script src="js/share.js"></script>
+<script src="js/ocr.js"></script>
+<script src="js/excel.js"></script>
+<script src="js/app.js"></script>
+
+<script>
+// Reset helper (called from info page)
+function resetData() {
+  if (confirm('確認重置？現有資料將全部清除，還原至示範數據。')) {
+    localStorage.removeItem('ocr-fe-demo-batches');
+    showToast('✅ 已重置至示範資料', 'success');
+    showPage('page-home');
+  }
+}
+</script>
+
+</body>
+</html>
