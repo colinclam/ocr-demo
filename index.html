@@ -4,18 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>滅火器到期追蹤系統</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/5.0.4/tesseract.min.js"></script>
+    <!-- 修復1：移除 Tesseract，改用 Dexie（IndexedDB） -->
+    <script src="https://cdn.jsdelivr.net/npm/dexie@3/dist/dexie.min.js"></script>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        html {
-            font-size: 20px;
-        }
-
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html { font-size: 20px; }
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", sans-serif;
             background: #f5f5f5;
@@ -24,6 +17,7 @@
             padding-bottom: 140px;
         }
 
+        /* ===== 導航欄 ===== */
         .navbar {
             background: white;
             border-bottom: 1px solid #e0e0e0;
@@ -33,7 +27,6 @@
             z-index: 100;
             box-shadow: 0 2px 4px rgba(0,0,0,0.05);
         }
-
         .nav-container {
             max-width: 480px;
             margin: 0 auto;
@@ -41,7 +34,6 @@
             gap: 4px;
             padding: 0 12px;
         }
-
         .nav-btn {
             flex: 1;
             padding: 12px 8px;
@@ -53,27 +45,22 @@
             transition: all 0.3s;
             color: #666;
         }
-
         .nav-btn.active {
             color: #d32f2f;
             border-bottom-color: #d32f2f;
             font-weight: 600;
         }
 
+        /* ===== 主容器 ===== */
         .container {
             max-width: 480px;
             margin: 0 auto;
             padding: 16px;
         }
+        .page { display: none; }
+        .page.active { display: block; }
 
-        .page {
-            display: none;
-        }
-
-        .page.active {
-            display: block;
-        }
-
+        /* ===== 首頁 ===== */
         .status-banner {
             background: white;
             border-radius: 12px;
@@ -81,32 +68,11 @@
             margin-bottom: 16px;
             border-left: 6px solid #d32f2f;
         }
-
-        .status-banner.red {
-            border-left-color: #d32f2f;
-            background: #fcebeb;
-        }
-
-        .status-banner.orange {
-            border-left-color: #f57c00;
-            background: #fff3e0;
-        }
-
-        .status-banner.green {
-            border-left-color: #388e3c;
-            background: #e8f5e9;
-        }
-
-        .status-banner h2 {
-            font-size: 1.3rem;
-            font-weight: 700;
-            margin-bottom: 4px;
-        }
-
-        .status-banner p {
-            font-size: 0.95rem;
-            opacity: 0.85;
-        }
+        .status-banner.red    { border-left-color: #d32f2f; background: #fcebeb; }
+        .status-banner.orange { border-left-color: #f57c00; background: #fff3e0; }
+        .status-banner.green  { border-left-color: #388e3c; background: #e8f5e9; }
+        .status-banner h2 { font-size: 1.3rem; font-weight: 700; margin-bottom: 4px; }
+        .status-banner p  { font-size: 0.95rem; opacity: 0.85; }
 
         .batch-card {
             background: white;
@@ -115,44 +81,17 @@
             margin-bottom: 12px;
             border-left: 4px solid #ccc;
         }
+        .batch-card.urgent  { border-left-color: #d32f2f; }
+        .batch-card.warning { border-left-color: #f57c00; }
+        .batch-card.normal  { border-left-color: #388e3c; }
+        .batch-card h3 { font-size: 1.1rem; font-weight: 700; margin-bottom: 8px; }
+        .batch-card .batch-info { font-size: 0.95rem; color: #666; line-height: 1.8; }
+        .batch-card .batch-info strong { color: #1a1a1a; font-weight: 600; }
 
-        .batch-card.urgent {
-            border-left-color: #d32f2f;
-        }
-
-        .batch-card.warning {
-            border-left-color: #f57c00;
-        }
-
-        .batch-card.normal {
-            border-left-color: #388e3c;
-        }
-
-        .batch-card h3 {
-            font-size: 1.1rem;
-            font-weight: 700;
-            margin-bottom: 8px;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .batch-card .batch-info {
-            font-size: 0.95rem;
-            color: #666;
-            line-height: 1.8;
-        }
-
-        .batch-card .batch-info strong {
-            color: #1a1a1a;
-            font-weight: 600;
-        }
-
+        /* ===== 底部按鈕 ===== */
         .bottom-actions {
             position: fixed;
-            bottom: 0;
-            left: 0;
-            right: 0;
+            bottom: 0; left: 0; right: 0;
             background: white;
             border-top: 1px solid #e0e0e0;
             padding: 12px;
@@ -163,7 +102,6 @@
             margin: 0 auto;
             z-index: 50;
         }
-
         .action-btn {
             padding: 18px;
             border: 1px solid #d0d0d0;
@@ -180,28 +118,15 @@
             justify-content: center;
             gap: 4px;
         }
+        .action-btn:active { transform: scale(0.98); background: #f5f5f5; }
 
-        .action-btn:active {
-            transform: scale(0.98);
-            background: #f5f5f5;
-        }
-
-        .action-btn:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-        }
-
-        .register-page {
-            padding: 0;
-        }
-
+        /* ===== 登記頁 ===== */
         .register-steps {
             display: flex;
             gap: 8px;
             margin-bottom: 20px;
             padding: 0 16px;
         }
-
         .step-dot {
             flex: 1;
             height: 6px;
@@ -209,49 +134,15 @@
             border-radius: 3px;
             transition: all 0.3s;
         }
+        .step-dot.active { background: #d32f2f; height: 8px; }
 
-        .step-dot.active {
-            background: #d32f2f;
-            height: 8px;
-        }
+        .register-step { display: none; padding: 0 16px 60px; }
+        .register-step.active { display: block; animation: fadeIn 0.3s ease; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        .register-step h2 { font-size: 1.3rem; font-weight: 700; margin-bottom: 12px; }
+        .register-step p  { font-size: 0.95rem; color: #666; margin-bottom: 16px; line-height: 1.6; }
 
-        .register-step {
-            display: none;
-            padding: 0 16px 60px;
-        }
-
-        .register-step.active {
-            display: block;
-            animation: fadeIn 0.3s ease;
-        }
-
-        @keyframes fadeIn {
-            from {
-                opacity: 0;
-            }
-            to {
-                opacity: 1;
-            }
-        }
-
-        .register-step h2 {
-            font-size: 1.3rem;
-            font-weight: 700;
-            margin-bottom: 12px;
-            color: #1a1a1a;
-        }
-
-        .register-step p {
-            font-size: 0.95rem;
-            color: #666;
-            margin-bottom: 16px;
-            line-height: 1.6;
-        }
-
-        .photo-input {
-            display: none;
-        }
-
+        .photo-input { display: none; }
         .camera-preview {
             background: #f5f5f5;
             border-radius: 12px;
@@ -263,12 +154,7 @@
             align-items: center;
             justify-content: center;
         }
-
-        .camera-preview img {
-            max-width: 100%;
-            max-height: 200px;
-            border-radius: 8px;
-        }
+        .camera-preview img { max-width: 100%; max-height: 200px; border-radius: 8px; }
 
         .ocr-result-card {
             background: white;
@@ -278,104 +164,87 @@
             text-align: center;
             margin-bottom: 16px;
         }
-
         .ocr-result-date {
             font-size: 1.8rem;
             font-weight: 700;
             color: #d32f2f;
             margin: 12px 0;
         }
-
         .ocr-loading {
             text-align: center;
             padding: 20px;
             color: #666;
         }
-
         .ocr-loading .spinner {
             display: inline-block;
-            width: 30px;
-            height: 30px;
+            width: 30px; height: 30px;
             border: 3px solid #e0e0e0;
             border-top: 3px solid #d32f2f;
             border-radius: 50%;
             animation: spin 1s linear infinite;
             margin-bottom: 12px;
         }
+        @keyframes spin { to { transform: rotate(360deg); } }
 
-        @keyframes spin {
-            to {
-                transform: rotate(360deg);
-            }
+        .edit-button {
+            color: #d32f2f;
+            cursor: pointer;
+            font-size: 0.85rem;
+            text-decoration: underline;
+            background: none;
+            border: none;
         }
 
-        .voice-section {
+        /* ===== 手動輸入日期 ===== */
+        .manual-date-section {
+            background: #fff3e0;
+            border: 1px solid #f57c00;
+            border-radius: 8px;
+            padding: 14px;
+            margin-bottom: 16px;
+        }
+        .manual-date-section label {
+            display: block;
+            font-size: 0.9rem;
+            color: #666;
+            margin-bottom: 6px;
+        }
+        .manual-date-section input[type="date"] {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #d0d0d0;
+            border-radius: 6px;
+            font-size: 1rem;
+        }
+
+        /* ===== 位置輸入 ===== */
+        .location-section {
             background: white;
             border-radius: 12px;
             padding: 20px;
-            text-align: center;
             margin-bottom: 16px;
         }
-
-        .voice-button {
-            width: 100px;
-            height: 100px;
-            border-radius: 50%;
-            border: 3px solid #d32f2f;
-            background: white;
-            color: #d32f2f;
-            font-size: 2rem;
-            cursor: pointer;
-            transition: all 0.3s;
-            margin: 20px auto;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .voice-button:active {
-            transform: scale(0.95);
-            background: #fcebeb;
-        }
-
-        .voice-button.listening {
-            background: #d32f2f;
-            color: white;
-            animation: pulse 1.5s infinite;
-        }
-
-        @keyframes pulse {
-            0%, 100% {
-                box-shadow: 0 0 0 0 rgba(211, 47, 47, 0.7);
-            }
-            50% {
-                box-shadow: 0 0 0 20px rgba(211, 47, 47, 0);
-            }
-        }
-
-        .voice-result {
-            background: #e8f5e9;
-            border-left: 4px solid #388e3c;
-            border-radius: 8px;
-            padding: 14px;
-            margin: 16px 0;
-            font-size: 1.1rem;
-            color: #1a1a1a;
-        }
-
-        .voice-status {
+        .location-section label {
+            display: block;
             font-size: 0.95rem;
-            color: #666;
-            margin: 12px 0;
+            font-weight: 600;
+            margin-bottom: 10px;
+        }
+        .location-input {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #d0d0d0;
+            border-radius: 8px;
+            font-size: 1rem;
         }
 
+        /* ===== 確認頁 ===== */
         .final-summary {
             background: white;
             border-radius: 12px;
             padding: 16px;
             margin-bottom: 16px;
         }
-
         .summary-item {
             display: flex;
             justify-content: space-between;
@@ -384,33 +253,12 @@
             border-bottom: 1px solid #e0e0e0;
             font-size: 0.95rem;
         }
+        .summary-item:last-child { border-bottom: none; }
+        .summary-label { color: #666; }
+        .summary-value { font-weight: 600; }
 
-        .summary-item:last-child {
-            border-bottom: none;
-        }
-
-        .summary-label {
-            color: #666;
-        }
-
-        .summary-value {
-            font-weight: 600;
-            color: #1a1a1a;
-        }
-
-        .edit-button {
-            color: #d32f2f;
-            cursor: pointer;
-            font-size: 0.85rem;
-            text-decoration: underline;
-        }
-
-        .btn-group {
-            display: flex;
-            gap: 8px;
-            margin-top: 16px;
-        }
-
+        /* ===== 按鈕 ===== */
+        .btn-group { display: flex; gap: 8px; margin-top: 16px; }
         .btn-primary {
             flex: 1;
             padding: 16px;
@@ -421,20 +269,11 @@
             font-size: 0.95rem;
             font-weight: 600;
             cursor: pointer;
-            transition: all 0.3s;
             min-height: 56px;
+            transition: all 0.3s;
         }
-
-        .btn-primary:active {
-            transform: scale(0.98);
-            opacity: 0.9;
-        }
-
-        .btn-primary:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-        }
-
+        .btn-primary:active { transform: scale(0.98); opacity: 0.9; }
+        .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
         .btn-secondary {
             flex: 1;
             padding: 16px;
@@ -445,31 +284,22 @@
             font-size: 0.95rem;
             font-weight: 600;
             cursor: pointer;
-            transition: all 0.3s;
             min-height: 56px;
+            transition: all 0.3s;
         }
+        .btn-secondary:active { transform: scale(0.98); background: #e0e0e0; }
 
-        .btn-secondary:active {
-            transform: scale(0.98);
-            background: #e0e0e0;
-        }
-
+        /* ===== 模態框 ===== */
         .modal {
             display: none;
             position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
+            top: 0; left: 0; right: 0; bottom: 0;
             background: rgba(0,0,0,0.5);
             z-index: 200;
             align-items: flex-end;
+            justify-content: center;
         }
-
-        .modal.active {
-            display: flex;
-        }
-
+        .modal.active { display: flex; }
         .modal-content {
             background: white;
             width: 100%;
@@ -480,40 +310,22 @@
             overflow-y: auto;
             animation: slideUp 0.3s ease;
         }
-
-        @keyframes slideUp {
-            from {
-                transform: translateY(100%);
-            }
-            to {
-                transform: translateY(0);
-            }
-        }
-
-        .modal-header {
-            font-size: 1.2rem;
-            font-weight: 700;
-            margin-bottom: 16px;
-        }
-
+        @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+        .modal-header { font-size: 1.2rem; font-weight: 700; margin-bottom: 16px; }
         .modal-preview {
             background: #f5f5f5;
             border: 1px solid #e0e0e0;
             border-radius: 8px;
             padding: 14px;
             margin: 16px 0;
-            font-size: 0.9rem;
+            font-size: 0.88rem;
             line-height: 1.7;
             white-space: pre-wrap;
             word-break: break-word;
+            max-height: 400px;
+            overflow-y: auto;
         }
-
-        .modal-actions {
-            display: flex;
-            gap: 8px;
-            margin-top: 16px;
-        }
-
+        .modal-actions { display: flex; gap: 8px; margin-top: 16px; }
         .modal-btn {
             flex: 1;
             padding: 14px;
@@ -524,247 +336,235 @@
             cursor: pointer;
             transition: all 0.3s;
         }
+        .modal-btn-primary { background: #d32f2f; color: white; }
+        .modal-btn-secondary { background: #f5f5f5; color: #1a1a1a; }
 
-        .modal-btn-primary {
-            background: #d32f2f;
-            color: white;
-        }
-
-        .modal-btn-primary:active {
-            transform: scale(0.98);
-            opacity: 0.9;
-        }
-
-        .modal-btn-secondary {
-            background: #f5f5f5;
-            color: #1a1a1a;
-        }
-
-        .modal-btn-secondary:active {
-            transform: scale(0.98);
-            background: #e0e0e0;
-        }
-
+        /* ===== Toast ===== */
         .toast {
             position: fixed;
             bottom: 160px;
-            left: 16px;
-            right: 16px;
+            left: 16px; right: 16px;
             background: #1a1a1a;
             color: white;
             padding: 14px 16px;
             border-radius: 8px;
             text-align: center;
             font-size: 0.9rem;
-            z-index: 150;
+            z-index: 300;
             animation: fadeIn 0.3s ease;
         }
 
+        /* ===== 說明頁 ===== */
         .help-section {
             background: white;
             border-radius: 12px;
             padding: 16px;
             margin-bottom: 12px;
         }
-
-        .help-section h3 {
-            font-size: 1.05rem;
-            font-weight: 700;
-            margin-bottom: 8px;
-        }
-
-        .help-section p {
-            font-size: 0.95rem;
-            color: #666;
-            line-height: 1.7;
-        }
-
+        .help-section h3 { font-size: 1.05rem; font-weight: 700; margin-bottom: 8px; }
+        .help-section p  { font-size: 0.95rem; color: #666; line-height: 1.7; }
         .help-section li {
             font-size: 0.95rem;
             color: #666;
-            padding: 8px 0;
-            padding-left: 16px;
+            padding: 8px 0 8px 16px;
             position: relative;
         }
+        .help-section li:before { content: "→"; position: absolute; left: 0; color: #d32f2f; font-weight: 600; }
 
-        .help-section li:before {
-            content: "→";
-            position: absolute;
-            left: 0;
-            color: #d32f2f;
-            font-weight: 600;
+        /* ===== 空狀態 ===== */
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: #999;
         }
+        .empty-state .icon { font-size: 3rem; margin-bottom: 12px; }
 
         @media (max-width: 480px) {
-            html {
-                font-size: 18px;
-            }
-
-            .container {
-                padding: 12px;
-            }
+            html { font-size: 18px; }
+            .container { padding: 12px; }
         }
     </style>
 </head>
 <body>
 
+<!-- 導航欄 -->
 <div class="navbar">
     <div class="nav-container">
-        <button class="nav-btn active" onclick="showPage('home')">📋 首頁</button>
-        <button class="nav-btn" onclick="showPage('register')">📝 登記</button>
-        <button class="nav-btn" onclick="showPage('help')">❔ 說明</button>
+        <button class="nav-btn active" onclick="showPage('home', this)">📋 首頁</button>
+        <button class="nav-btn" onclick="showPage('register', this)">📝 登記</button>
+        <button class="nav-btn" onclick="showPage('help', this)">❔ 說明</button>
     </div>
 </div>
 
 <div class="container">
 
+    <!-- ===== 首頁 ===== -->
     <div id="page-home" class="page active">
         <div class="status-banner red" id="status-banner">
             <h2>🚨 需要檢查</h2>
-            <p>有 <strong id="urgent-count">1</strong> 個批次需要立即檢查</p>
+            <p>有 <strong id="urgent-count">0</strong> 個批次需要立即檢查</p>
         </div>
-        <div id="batches-container"></div>
+        <div id="batches-container">
+            <div class="empty-state">
+                <div class="icon">📭</div>
+                <div>還沒有記錄</div>
+                <div style="font-size:0.85rem;margin-top:8px;">點「📝 登記」開始掃描</div>
+            </div>
+        </div>
     </div>
 
-    <div id="page-register" class="page register-page">
+    <!-- ===== 登記頁 ===== -->
+    <div id="page-register" class="page">
         <div class="register-steps">
             <div class="step-dot active"></div>
             <div class="step-dot"></div>
             <div class="step-dot"></div>
         </div>
 
+        <!-- Step 1：拍照 -->
         <div id="step-1" class="register-step active">
-            <h2>📸 掃描日期標籤</h2>
-            <p>請對準滅火器上的日期標籤，點「拍照」。</p>
-            
+            <h2>📸 拍照日期標籤</h2>
+            <p>對準滅火器檢查卡（DATE DE VALIDADE 那行），點「拍照」，系統自動識別日期。</p>
+
             <div class="camera-preview" id="camera-preview">
-                <span id="preview-placeholder">拍照後會顯示在這裡</span>
-                <img id="preview-image" style="display: none;">
+                <span id="preview-placeholder">📷 拍照後顯示在這裡</span>
+                <img id="preview-image" style="display:none;">
             </div>
 
-            <input type="file" id="camera-input" class="photo-input" accept="image/*" capture="environment" onchange="handlePhotoCapture(event)">
+            <input type="file" id="camera-input" class="photo-input"
+                   accept="image/*" capture="environment"
+                   onchange="handlePhotoCapture(event)">
 
             <div class="btn-group">
                 <button class="btn-primary" onclick="openCamera()">📷 拍照</button>
-                <button class="btn-secondary" onclick="goToStep(2)">✏️ 手動輸入</button>
+                <button class="btn-secondary" onclick="skipToManual()">✏️ 手動輸入日期</button>
             </div>
         </div>
 
+        <!-- Step 2：確認日期 + 輸入位置 -->
         <div id="step-2" class="register-step">
-            <h2>⏰ 確認日期 & 🎤 説位置</h2>
-            <p>OCR 已識別到期日期，現在請説出存放位置。</p>
+            <h2>✅ 確認日期 & 輸入位置</h2>
 
-            <div class="ocr-result-card">
-                <div>到期日期</div>
-                <div class="ocr-result-date" id="ocr-date">2026-05-24</div>
-                <button class="edit-button" onclick="goToStep(1)">🔄 重新掃描</button>
+            <!-- OCR 結果 -->
+            <div class="ocr-result-card" id="ocr-result-card">
+                <div style="font-size:0.9rem;color:#666;">識別到期日期</div>
+                <div class="ocr-result-date" id="ocr-date">--</div>
+                <button class="edit-button" onclick="goToStep(1)">🔄 重新拍照</button>
             </div>
 
-            <div class="voice-section">
-                <div>📍 説出存放位置</div>
-                <p style="font-size: 0.85rem; color: #999; margin: 8px 0;">例如：「三樓走廊」或「三樓走廊十個」</p>
-                
-                <div class="voice-button" id="voice-btn" onclick="toggleVoiceInput()">🎤</div>
-                
-                <div class="voice-status" id="voice-status">點擊麥克風開始説話</div>
-                
-                <div id="voice-result-container" style="display: none;">
-                    <div class="voice-result" id="voice-result"></div>
-                    <div style="text-align: center; margin-top: 12px;">
-                        <button class="edit-button" onclick="toggleVoiceInput()">🎤 重新説話</button>
-                    </div>
-                </div>
+            <!-- 如果 OCR 失敗，手動輸入日期 -->
+            <div class="manual-date-section" id="manual-date-section" style="display:none;">
+                <label>⚠️ 未能識別日期，請手動輸入：</label>
+                <input type="date" id="manual-date" onchange="setManualDate(this.value)">
+            </div>
+
+            <!-- 輸入位置 -->
+            <div class="location-section">
+                <label>📍 存放位置（必填）</label>
+                <input type="text" id="location-input" class="location-input"
+                       placeholder="例：三樓走廊、地下車場"
+                       oninput="checkStep2Ready()">
             </div>
 
             <div class="btn-group">
-                <button class="btn-primary" id="step2-next-btn" onclick="goToStep(3)" disabled>✓ 確認</button>
+                <button class="btn-primary" id="step2-next-btn"
+                        onclick="goToStep(3)" disabled>✓ 下一步</button>
+                <button class="btn-secondary" onclick="goToStep(1)">← 返回</button>
             </div>
         </div>
 
+        <!-- Step 3：確認 + 提交 -->
         <div id="step-3" class="register-step">
             <h2>✓ 確認所有資訊</h2>
-            <p>請確認以下資訊無誤，點「完成登記」。</p>
+            <p>確認無誤後，點「完成登記」。</p>
 
             <div class="final-summary">
                 <div class="summary-item">
                     <span class="summary-label">⏰ 到期日期</span>
-                    <span class="summary-value" id="final-date">2026-05-24</span>
+                    <span class="summary-value" id="final-date" style="color:#d32f2f;font-size:1.1rem;">--</span>
                 </div>
                 <div class="summary-item">
                     <span class="summary-label">📍 存放位置</span>
-                    <span class="summary-value" id="final-location">三樓走廊</span>
+                    <span class="summary-value" id="final-location">--</span>
                 </div>
                 <div class="summary-item">
-                    <span class="summary-label">🔥 滅火器類型</span>
+                    <span class="summary-label">🔥 類型</span>
                     <span class="summary-value">
-                        <select id="final-type" style="padding: 6px; border: 1px solid #d0d0d0; border-radius: 4px; font-size: 0.9rem;">
+                        <select id="final-type"
+                                style="padding:6px;border:1px solid #d0d0d0;border-radius:4px;font-size:0.9rem;">
                             <option value="">選擇類型</option>
                             <option value="乾粉">乾粉</option>
                             <option value="泡沫">泡沫</option>
                             <option value="CO₂">CO₂</option>
+                            <option value="其他">其他</option>
                         </select>
                     </span>
                 </div>
                 <div class="summary-item">
                     <span class="summary-label">📊 數量</span>
                     <span class="summary-value">
-                        <input type="number" id="final-quantity" value="1" min="1" style="width: 60px; padding: 6px; border: 1px solid #d0d0d0; border-radius: 4px; text-align: center;">
+                        <input type="number" id="final-quantity" value="1" min="1"
+                               style="width:60px;padding:6px;border:1px solid #d0d0d0;border-radius:4px;text-align:center;">
+                        <span style="font-size:0.9rem;color:#666;margin-left:4px;">個</span>
                     </span>
                 </div>
             </div>
 
             <div class="btn-group">
                 <button class="btn-primary" onclick="submitRegistration()">✓ 完成登記</button>
-                <button class="btn-secondary" onclick="goToStep(1)">← 返回</button>
+                <button class="btn-secondary" onclick="goToStep(2)">← 返回</button>
             </div>
         </div>
     </div>
 
+    <!-- ===== 說明頁 ===== -->
     <div id="page-help" class="page">
-        <div style="margin-bottom: 16px;">
-            <h2 style="font-size: 1.3rem; font-weight: 700;">ℹ️ 說明 & 幫助</h2>
+        <div style="margin-bottom:16px;">
+            <h2 style="font-size:1.3rem;font-weight:700;">ℹ️ 說明 & 幫助</h2>
         </div>
 
         <div class="help-section">
-            <h3>📋 本系統用途</h3>
-            <p>幫助前線人員快速查看和登記滅火器的到期情況，確保工作場所的安全。</p>
+            <h3>📋 系統用途</h3>
+            <p>幫助前線人員掃描、記錄及追蹤滅火器到期日期，並自動生成報告供上報。</p>
         </div>
 
         <div class="help-section">
             <h3>🎯 怎樣使用？</h3>
-            <ul style="list-style: none; margin: 0;">
-                <li><strong>第 1 步：</strong>打開「首頁」，查看滅火器狀況</li>
-                <li><strong>第 2 步：</strong>點「分享到 WeChat」，通知小組</li>
-                <li><strong>第 3 步：</strong>點「登記」，添加新批次（3 步：拍照 → 説位置 → 完成）</li>
+            <ul style="list-style:none;margin:0;">
+                <li><strong>登記：</strong>點「📝 登記」→ 拍照 → 確認日期及位置 → 保存</li>
+                <li><strong>查看：</strong>首頁自動顯示所有記錄及狀態</li>
+                <li><strong>上報：</strong>點「📋 複製報告」→ 複製 → 貼到 WeChat 發給老闆</li>
             </ul>
         </div>
 
         <div class="help-section">
-            <h3>📸 拍照掃描</h3>
-            <p>對準滅火器標籤上的日期，點「拍照」。系統會自動識別日期，若不準確可手動輸入或重新掃描。</p>
-        </div>
-
-        <div class="help-section">
-            <h3>🎤 語音輸入位置</h3>
-            <p>點麥克風按鈕，説出位置（例如「三樓走廊」），系統會自動識別。識別不準可重新説話。</p>
+            <h3>📸 拍照技巧</h3>
+            <p>對準白色標籤「DATE DE VALIDADE」那行，保持穩定，避免反光，光線充足效果更好。</p>
         </div>
 
         <div class="help-section">
             <h3>🔴 三種狀態</h3>
-            <p>🔴 <strong>紅色 = 緊急（1-7 天）</strong><br/>需要立即檢查</p>
-            <p style="margin-top: 8px;">🟠 <strong>橙色 = 準備（8-14 天）</strong><br/>需要在兩週內檢查</p>
-            <p style="margin-top: 8px;">🟢 <strong>綠色 = 正常（15+ 天）</strong><br/>暫不用急</p>
+            <p>🔴 <strong>紅色（緊急）：</strong>7 天內到期，需立即處理</p>
+            <p style="margin-top:8px;">🟠 <strong>橙色（警告）：</strong>8-14 天內到期，需準備</p>
+            <p style="margin-top:8px;">🟢 <strong>綠色（正常）：</strong>15 天以上，暫不用急</p>
         </div>
 
-        <div style="height: 20px;"></div>
+        <div class="help-section">
+            <h3>💾 數據儲存</h3>
+            <p>所有記錄儲存在你的手機瀏覽器，關掉 App 或重啟手機後數據仍在。<br>
+            <strong>注意：</strong>清除瀏覽器數據會刪除記錄，建議定期匯出 CSV 備份。</p>
+        </div>
+
+        <div style="height:20px;"></div>
     </div>
 
 </div>
 
+<!-- 底部按鈕 -->
 <div class="bottom-actions">
-    <button class="action-btn" onclick="showShareModal()" id="share-btn">
-        <span>💬</span>
-        <span>分享到 WeChat</span>
+    <button class="action-btn" onclick="showReportModal()">
+        <span>📋</span>
+        <span>複製報告</span>
     </button>
     <button class="action-btn" onclick="exportCSV()">
         <span>📊</span>
@@ -772,399 +572,527 @@
     </button>
 </div>
 
-<div id="share-modal" class="modal">
+<!-- 報告模態框 -->
+<div id="report-modal" class="modal">
     <div class="modal-content">
-        <div class="modal-header">📋 分享到 WeChat</div>
-        <p style="font-size: 0.95rem; color: #666; margin-bottom: 12px;">預覽訊息內容：</p>
-        <div class="modal-preview" id="share-preview"></div>
+        <div class="modal-header">📋 滅火器檢查報告</div>
+        <p style="font-size:0.85rem;color:#666;margin-bottom:8px;">預覽報告內容（複製後貼到 WeChat）：</p>
+        <div class="modal-preview" id="report-preview"></div>
         <div class="modal-actions">
-            <button class="modal-btn modal-btn-primary" onclick="copyToClipboard()">✓ 複製訊息</button>
-            <button class="modal-btn modal-btn-secondary" onclick="closeShareModal()">取消</button>
+            <button class="modal-btn modal-btn-primary" onclick="copyReport()">✓ 複製</button>
+            <button class="modal-btn modal-btn-secondary" onclick="closeReportModal()">關閉</button>
         </div>
-        <p style="font-size: 0.85rem; color: #999; text-align: center; margin-top: 12px;">複製後，打開 WeChat 手動選擇分享對象</p>
     </div>
 </div>
 
 <script>
-    let batches = [
-        {
-            id: 'A',
-            type: '乾粉',
-            quantity: 30,
-            expDate: '2026-05-24',
-            locations: ['三樓走廊（10 個）', '二樓大堂（10 個）', '地下車場（10 個）']
-        },
-        {
-            id: 'B',
-            type: '泡沫',
-            quantity: 20,
-            expDate: '2026-06-15',
-            locations: ['一樓消防房（20 個）']
-        },
-        {
-            id: 'C',
-            type: 'CO₂',
-            quantity: 15,
-            expDate: '2026-07-10',
-            locations: ['二樓走廊（15 個）']
-        }
-    ];
+// ================================================================
+// 修復1：Google Vision API Key（替換 Tesseract）
+// ================================================================
+const GOOGLE_VISION_API_KEY = 'AIzaSyAU-Z8qIayyLhv2W3Qn_aaCYzP8XHM7vQM';
 
-    let registrationData = {
-        date: '',
-        location: '',
-        type: '',
-        quantity: 1
-    };
+// ================================================================
+// 修復2：IndexedDB（替換 JavaScript 變數）
+// ================================================================
+const db = new Dexie('FEInspectionDB');
+db.version(1).stores({
+    inspections: '++id, expiryDate, createdAt, status'
+});
 
-    let currentStep = 1;
-    let voiceRecognition = null;
-    let isListening = false;
+// 暫存當前登記的數據
+var currentEntry = { date: '', location: '', type: '', quantity: 1 };
 
-    function showPage(pageName) {
-        document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-        document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
-        
-        document.getElementById(`page-${pageName}`).classList.add('active');
-        event.target.classList.add('active');
-        
-        if (pageName === 'home') {
-            renderBatches();
-        }
-        
-        if (pageName === 'register') {
-            resetRegistration();
-        }
+// ================================================================
+// 頁面導航
+// ================================================================
+function showPage(pageName, btn) {
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById(`page-${pageName}`).classList.add('active');
+    if (btn) btn.classList.add('active');
+    if (pageName === 'home') loadRecords();
+    if (pageName === 'register') resetRegistration();
+}
+
+// ================================================================
+// 登記步驟導航
+// ================================================================
+function goToStep(n) {
+    document.querySelectorAll('.register-step').forEach(s => s.classList.remove('active'));
+    document.querySelectorAll('.step-dot').forEach(d => d.classList.remove('active'));
+    document.getElementById(`step-${n}`).classList.add('active');
+    for (let i = 0; i < n; i++) {
+        document.querySelectorAll('.step-dot')[i].classList.add('active');
     }
+    if (n === 2) checkStep2Ready();
+    if (n === 3) updateStep3Summary();
+    window.scrollTo(0, 0);
+}
 
-    function goToStep(stepNum) {
-        document.querySelectorAll('.register-step').forEach(s => s.classList.remove('active'));
-        document.querySelectorAll('.step-dot').forEach(d => d.classList.remove('active'));
+function skipToManual() {
+    currentEntry.date = '';
+    document.getElementById('ocr-result-card').style.display = 'none';
+    document.getElementById('manual-date-section').style.display = 'block';
+    document.getElementById('manual-date').value = '';
+    goToStep(2);
+}
 
-        document.getElementById(`step-${stepNum}`).classList.add('active');
-        
-        for (let i = 1; i <= stepNum; i++) {
-            document.querySelectorAll('.step-dot')[i - 1].classList.add('active');
-        }
+// ================================================================
+// Step 1：拍照
+// ================================================================
+function openCamera() {
+    document.getElementById('camera-input').click();
+}
 
-        currentStep = stepNum;
+function handlePhotoCapture(event) {
+    const file = event.target.files[0];
+    if (!file) return;
 
-        if (stepNum === 2) {
-            checkStep2Ready();
-        }
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        const imgData = e.target.result;
 
-        window.scrollTo(0, 0);
-    }
-
-    function openCamera() {
-        document.getElementById('camera-input').click();
-    }
-
-    function handlePhotoCapture(event) {
-        const file = event.target.files[0];
-        if (!file) return;
-
-        const reader = new FileReader();
-        reader.onload = (e) => {
-            const img = e.target.result;
-            document.getElementById('preview-image').src = img;
-            document.getElementById('preview-image').style.display = 'block';
-            document.getElementById('preview-placeholder').style.display = 'none';
-
-            performOCR(img);
-        };
-        reader.readAsDataURL(file);
-    }
-
-    async function performOCR(imageDataUrl) {
-        showOCRLoading();
-
-        try {
-            const { createWorker } = Tesseract;
-            const worker = await createWorker('chi_sim');
-            
-            const result = await worker.recognize(imageDataUrl);
-            const text = result.data.text;
-
-            const dateMatch = text.match(/(\d{4}[\/\-]\d{1,2}[\/\-]\d{1,2})/);
-            
-            if (dateMatch) {
-                let dateStr = dateMatch[0].replace(/\//g, '-');
-                const parts = dateStr.split('-');
-                
-                if (parts[0].length === 4) {
-                    dateStr = `${parts[0]}-${parts[1].padStart(2, '0')}-${parts[2].padStart(2, '0')}`;
-                } else {
-                    dateStr = `${parts[2].padStart(2, '0')}-${parts[0].padStart(2, '0')}-${parts[1].padStart(2, '0')}`;
-                }
-
-                registrationData.date = dateStr;
-                document.getElementById('ocr-date').textContent = dateStr;
-                document.getElementById('final-date').textContent = dateStr;
-
-                goToStep(2);
-                speak('識別到期日為 ' + dateStr.replace(/-/g, ' 年 ') + ' 日。請説出存放位置。');
-            } else {
-                showToast('❌ 未能識別日期，請手動輸入或重新拍照');
-                goToStep(2);
-            }
-
-            await worker.terminate();
-        } catch (error) {
-            console.error('OCR Error:', error);
-            showToast('❌ OCR 失敗，請手動輸入或重新拍照');
-            goToStep(2);
-        }
-    }
-
-    function showOCRLoading() {
+        // 顯示預覽
         const preview = document.getElementById('camera-preview');
-        preview.innerHTML = '<div class="ocr-loading"><div class="spinner"></div><div>正在識別日期...</div></div>';
-    }
+        preview.innerHTML = `
+            <div class="ocr-loading">
+                <div class="spinner"></div>
+                <div>正在識別日期...</div>
+            </div>`;
 
-    function initVoiceRecognition() {
-        if (!voiceRecognition) {
-            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-            if (!SpeechRecognition) {
-                showToast('❌ 你的瀏覽器不支持語音識別');
-                return false;
+        performOCR(imgData);
+    };
+    reader.readAsDataURL(file);
+}
+
+// ================================================================
+// 修復3：Google Vision OCR（替換 Tesseract）
+// 修復4：Regex 支援 DD-MM-YYYY 格式 + 搜尋 DATE DE VALIDADE
+// ================================================================
+async function performOCR(imageDataUrl) {
+    try {
+        const base64Image = imageDataUrl.split(',')[1];
+
+        const response = await fetch(
+            `https://vision.googleapis.com/v1/images:annotate?key=${GOOGLE_VISION_API_KEY}`,
+            {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    requests: [{
+                        image: { content: base64Image },
+                        features: [{ type: 'TEXT_DETECTION' }]
+                    }]
+                })
             }
-            
-            voiceRecognition = new SpeechRecognition();
-            voiceRecognition.lang = 'zh-HK';
-            voiceRecognition.continuous = false;
-            voiceRecognition.interimResults = false;
+        );
 
-            voiceRecognition.onstart = () => {
-                isListening = true;
-                document.getElementById('voice-btn').classList.add('listening');
-                document.getElementById('voice-status').textContent = '正在聆聽...';
-            };
+        const data = await response.json();
 
-            voiceRecognition.onresult = (event) => {
-                const transcript = event.results[0][0].transcript;
-                registrationData.location = transcript;
-                document.getElementById('voice-result').textContent = transcript;
-                document.getElementById('voice-result-container').style.display = 'block';
-                document.getElementById('final-location').textContent = transcript;
-                checkStep2Ready();
-                speak('識別到：' + transcript);
-            };
-
-            voiceRecognition.onerror = (event) => {
-                showToast('❌ 語音識別失敗：' + event.error);
-                speak('語音識別失敗，請重試');
-                stopVoiceInput();
-            };
-
-            voiceRecognition.onend = () => {
-                stopVoiceInput();
-            };
-        }
-
-        return true;
-    }
-
-    function toggleVoiceInput() {
-        if (!isListening) {
-            if (initVoiceRecognition()) {
-                voiceRecognition.start();
-            }
-        } else {
-            stopVoiceInput();
-        }
-    }
-
-    function stopVoiceInput() {
-        isListening = false;
-        document.getElementById('voice-btn').classList.remove('listening');
-        document.getElementById('voice-status').textContent = '按麥克風開始説話';
-        if (voiceRecognition) {
-            voiceRecognition.stop();
-        }
-    }
-
-    function checkStep2Ready() {
-        const hasLocation = registrationData.location.trim() !== '';
-        document.getElementById('step2-next-btn').disabled = !hasLocation;
-    }
-
-    function submitRegistration() {
-        const type = document.getElementById('final-type').value;
-        const quantity = document.getElementById('final-quantity').value;
-
-        if (!type) {
-            showToast('❌ 請選擇滅火器類型');
+        if (data.error) {
+            console.error('Vision API error:', data.error);
+            showOCRFailed();
             return;
         }
 
-        registrationData.type = type;
-        registrationData.quantity = parseInt(quantity);
+        const fullText = data.responses[0]?.fullTextAnnotation?.text || '';
+        console.log('OCR 原文：', fullText); // 調試用
 
-        const newId = String.fromCharCode(65 + batches.length);
-        batches.push({
-            id: newId,
-            type: type,
-            quantity: registrationData.quantity,
-            expDate: registrationData.date,
-            locations: [registrationData.location]
-        });
+        const dateStr = extractExpiryDate(fullText);
 
-        showToast('✓ 成功登記新批次！');
-        speak('已經成功登記新批次！');
-
-        setTimeout(() => {
-            resetRegistration();
-            showPage('home');
-        }, 1500);
-    }
-
-    function resetRegistration() {
-        registrationData = { date: '', location: '', type: '', quantity: 1 };
-        document.getElementById('camera-input').value = '';
-        document.getElementById('preview-image').style.display = 'none';
-        document.getElementById('preview-placeholder').style.display = 'block';
-        document.getElementById('voice-result-container').style.display = 'none';
-        document.getElementById('final-type').value = '';
-        document.getElementById('final-quantity').value = '1';
-        goToStep(1);
-    }
-
-    function getDaysUntilExpiry(expDate) {
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        const exp = new Date(expDate);
-        exp.setHours(0, 0, 0, 0);
-        const diff = exp - today;
-        return Math.ceil(diff / (1000 * 60 * 60 * 24));
-    }
-
-    function getStatus(days) {
-        if (days <= 7) return 'urgent';
-        if (days <= 14) return 'warning';
-        return 'normal';
-    }
-
-    function getStatusEmoji(status) {
-        if (status === 'urgent') return '🚨';
-        if (status === 'warning') return '⚠️';
-        return '✅';
-    }
-
-    function renderBatches() {
-        const container = document.getElementById('batches-container');
-        container.innerHTML = '';
-
-        let urgentCount = 0;
-        let bannerStatus = 'green';
-
-        batches.forEach(batch => {
-            const days = getDaysUntilExpiry(batch.expDate);
-            const status = getStatus(days);
-            const emoji = getStatusEmoji(status);
-
-            if (status === 'urgent') {
-                urgentCount++;
-                bannerStatus = 'red';
-            } else if (status === 'warning' && bannerStatus !== 'red') {
-                bannerStatus = 'orange';
-            }
-
-            const card = document.createElement('div');
-            card.className = `batch-card ${status}`;
-            card.innerHTML = `
-                <h3>${emoji} BATCH-${batch.id} ${batch.type}</h3>
-                <div class="batch-info">
-                    <div>📊 數量：<strong>${batch.quantity} 個</strong></div>
-                    <div>⏰ 到期：<strong>${batch.expDate}</strong> | 剩餘：<strong>${days} 天</strong></div>
-                    <div>📍 位置：</div>
-                    ${batch.locations.map(loc => `<div style="margin-left: 16px;">• ${loc}</div>`).join('')}
-                </div>
-            `;
-            container.appendChild(card);
-        });
-
-        const banner = document.getElementById('status-banner');
-        banner.className = `status-banner ${bannerStatus}`;
-        
-        if (bannerStatus === 'red') {
-            banner.innerHTML = `<h2>🚨 需要檢查</h2><p>有 <strong>${urgentCount}</strong> 個批次需要立即檢查</p>`;
-        } else if (bannerStatus === 'orange') {
-            const warningCount = batches.filter(b => getStatus(getDaysUntilExpiry(b.expDate)) === 'warning').length;
-            banner.innerHTML = `<h2>⚠️ 注意</h2><p>有 <strong>${warningCount}</strong> 個批次需要留意</p>`;
+        if (dateStr) {
+            currentEntry.date = dateStr;
+            document.getElementById('ocr-date').textContent = dateStr;
+            document.getElementById('ocr-result-card').style.display = 'block';
+            document.getElementById('manual-date-section').style.display = 'none';
+            showToast('✅ 日期識別成功：' + dateStr);
+            goToStep(2);
         } else {
-            banner.innerHTML = `<h2>✅ 正常</h2><p>所有批次狀況良好</p>`;
+            showOCRFailed();
         }
+
+    } catch (err) {
+        console.error('OCR 失敗：', err);
+        showOCRFailed();
+    }
+}
+
+function showOCRFailed() {
+    showToast('❌ 未能識別日期，請手動輸入');
+    currentEntry.date = '';
+    document.getElementById('ocr-result-card').style.display = 'none';
+    document.getElementById('manual-date-section').style.display = 'block';
+    document.getElementById('camera-preview').innerHTML =
+        '<span id="preview-placeholder">📷 拍照後顯示在這裡</span>';
+    goToStep(2);
+}
+
+// ================================================================
+// 修復4：日期提取邏輯（支援澳門消防標籤格式）
+// ================================================================
+function extractExpiryDate(text) {
+
+    // 優先：搜尋 DATE DE VALIDADE 後面的日期（最準確）
+    const validityMatch = text.match(
+        /DATE\s*DE\s*VALIDADE[\s\S]{0,60}?(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{4})/i
+    );
+    if (validityMatch) {
+        return parseDDMMYYYY(validityMatch[1]);
     }
 
-    function showShareModal() {
-        const preview = batches.map(batch => {
-            const days = getDaysUntilExpiry(batch.expDate);
-            const status = getStatus(days);
-            const emoji = getStatusEmoji(status);
-            return `${emoji} BATCH-${batch.id} ${batch.type}×${batch.quantity} [${days}天]`;
-        }).join('\n');
-
-        const content = `📋 滅火器到期檢查提醒\n\n${preview}\n\n👉 詳細資訊請查看系統`;
-
-        document.getElementById('share-preview').textContent = content;
-        document.getElementById('share-modal').classList.add('active');
+    // 備選1：搜尋所有 DD-MM-YYYY 格式日期，取最後一個（通常是到期日）
+    const allDates = [...text.matchAll(/(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{4})/g)];
+    if (allDates.length > 0) {
+        // 取最後一個日期（到期日通常在充裝日後面）
+        return parseDDMMYYYY(allDates[allDates.length - 1][1]);
     }
 
-    function closeShareModal() {
-        document.getElementById('share-modal').classList.remove('active');
+    // 備選2：搜尋 YYYY-MM-DD 格式
+    const isoMatch = text.match(/(\d{4}[\/\-]\d{1,2}[\/\-]\d{1,2})/);
+    if (isoMatch) {
+        const parts = isoMatch[1].split(/[\/\-]/);
+        return `${parts[0]}-${parts[1].padStart(2,'0')}-${parts[2].padStart(2,'0')}`;
     }
 
-    function copyToClipboard() {
-        const text = document.getElementById('share-preview').textContent;
-        navigator.clipboard.writeText(text).then(() => {
-            closeShareModal();
-            showToast('✓ 已複製！請打開 WeChat 分享');
-            speak('已經成功複製，請打開 WeChat 分享給你的小組');
-        }).catch(() => {
-            showToast('❌ 複製失敗，請重試');
-        });
+    return null;
+}
+
+// DD-MM-YYYY → YYYY-MM-DD
+function parseDDMMYYYY(str) {
+    const parts = str.split(/[\/\-\.]/);
+    if (parts.length !== 3) return null;
+    const day   = parts[0].padStart(2, '0');
+    const month = parts[1].padStart(2, '0');
+    const year  = parts[2];
+    // 基本驗證
+    if (year.length !== 4) return null;
+    if (parseInt(month) > 12 || parseInt(day) > 31) return null;
+    return `${year}-${month}-${day}`;
+}
+
+// ================================================================
+// Step 2：確認日期 + 輸入位置
+// ================================================================
+function setManualDate(val) {
+    currentEntry.date = val;
+    document.getElementById('ocr-date').textContent = val;
+    checkStep2Ready();
+}
+
+function checkStep2Ready() {
+    const hasDate     = currentEntry.date !== '';
+    const hasLocation = document.getElementById('location-input').value.trim() !== '';
+    // 如果手動輸入日期，也要更新 currentEntry
+    const manualDate  = document.getElementById('manual-date').value;
+    if (manualDate && !currentEntry.date) {
+        currentEntry.date = manualDate;
     }
+    document.getElementById('step2-next-btn').disabled = !(currentEntry.date && hasLocation);
+}
 
-    function exportCSV() {
-        const csvContent = 'data:text/csv;charset=utf-8,%EF%BB%BF批次,類型,數量,到期日,位置\n' +
-            batches.map(b => `BATCH-${b.id},${b.type},${b.quantity},${b.expDate},${b.locations.join('; ')}`).join('\n');
+// ================================================================
+// Step 3：確認摘要
+// ================================================================
+function updateStep3Summary() {
+    const location = document.getElementById('location-input').value.trim();
+    currentEntry.location = location;
+    document.getElementById('final-date').textContent = currentEntry.date || '--';
+    document.getElementById('final-location').textContent = location || '--';
+}
 
-        const link = document.createElement('a');
-        link.setAttribute('href', csvContent);
-        link.setAttribute('download', 'batches.csv');
-        link.click();
+// ================================================================
+// 提交登記 → 儲存到 IndexedDB
+// ================================================================
+async function submitRegistration() {
+    const type     = document.getElementById('final-type').value;
+    const quantity = parseInt(document.getElementById('final-quantity').value) || 1;
+    const location = document.getElementById('location-input').value.trim();
 
-        showToast('✓ 已匯出 CSV 檔案');
-        speak('已經成功匯出檔案');
-    }
+    if (!currentEntry.date) { showToast('❌ 請先輸入到期日期'); return; }
+    if (!location)          { showToast('❌ 請輸入存放位置');   return; }
 
-    function showToast(message) {
-        const toast = document.createElement('div');
-        toast.className = 'toast';
-        toast.textContent = message;
-        document.body.appendChild(toast);
+    // 計算狀態
+    const today    = new Date(); today.setHours(0,0,0,0);
+    const expiry   = new Date(currentEntry.date); expiry.setHours(0,0,0,0);
+    const daysLeft = Math.ceil((expiry - today) / 86400000);
+    const status   = daysLeft < 0 ? 'EXPIRED'
+                   : daysLeft <= 7 ? 'URGENT'
+                   : daysLeft <= 14 ? 'WARNING'
+                   : 'VALID';
 
-        setTimeout(() => {
-            toast.remove();
-        }, 3000);
-    }
-
-    function speak(text) {
-        if ('speechSynthesis' in window) {
-            speechSynthesis.cancel();
-            const utterance = new SpeechSynthesisUtterance(text);
-            utterance.lang = 'zh-HK';
-            utterance.rate = 0.9;
-            utterance.pitch = 1.0;
-            speechSynthesis.speak(utterance);
-        }
-    }
-
-    window.addEventListener('load', () => {
-        renderBatches();
-        speak('歡迎使用滅火器追蹤系統');
+    // 儲存到 IndexedDB
+    await db.inspections.add({
+        location,
+        feType:     type || '未記錄',
+        expiryDate: currentEntry.date,
+        quantity,
+        daysLeft,
+        status,
+        createdAt:  new Date().toISOString()
     });
+
+    showToast('✅ 成功登記！');
+    resetRegistration();
+
+    // 返回首頁
+    setTimeout(() => {
+        document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+        document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+        document.getElementById('page-home').classList.add('active');
+        document.querySelector('.nav-btn').classList.add('active');
+        loadRecords();
+    }, 800);
+}
+
+function resetRegistration() {
+    currentEntry = { date: '', location: '', type: '', quantity: 1 };
+    document.getElementById('camera-input').value = '';
+    document.getElementById('preview-image').style.display = 'none';
+    document.getElementById('camera-preview').innerHTML =
+        '<span id="preview-placeholder">📷 拍照後顯示在這裡</span>';
+    document.getElementById('ocr-date').textContent = '--';
+    document.getElementById('ocr-result-card').style.display = 'block';
+    document.getElementById('manual-date-section').style.display = 'none';
+    document.getElementById('manual-date').value = '';
+    document.getElementById('location-input').value = '';
+    document.getElementById('final-type').value = '';
+    document.getElementById('final-quantity').value = '1';
+    goToStep(1);
+}
+
+// ================================================================
+// 首頁：載入所有記錄
+// ================================================================
+async function loadRecords() {
+    const records  = await db.inspections.toArray();
+    const container = document.getElementById('batches-container');
+
+    if (records.length === 0) {
+        container.innerHTML = `
+            <div class="empty-state">
+                <div class="icon">📭</div>
+                <div>還沒有記錄</div>
+                <div style="font-size:0.85rem;margin-top:8px;">點「📝 登記」開始掃描</div>
+            </div>`;
+        updateBanner([]);
+        return;
+    }
+
+    // 重新計算最新狀態（daysLeft 每天都在變）
+    const today = new Date(); today.setHours(0,0,0,0);
+    records.forEach(r => {
+        const expiry = new Date(r.expiryDate); expiry.setHours(0,0,0,0);
+        r.daysLeft = Math.ceil((expiry - today) / 86400000);
+        r.status   = r.daysLeft < 0 ? 'EXPIRED'
+                   : r.daysLeft <= 7 ? 'URGENT'
+                   : r.daysLeft <= 14 ? 'WARNING'
+                   : 'VALID';
+    });
+
+    // 按狀態排序（最緊急的在最上面）
+    const priority = { EXPIRED: 0, URGENT: 1, WARNING: 2, VALID: 3 };
+    records.sort((a, b) => priority[a.status] - priority[b.status]);
+
+    container.innerHTML = records.map(r => {
+        const cssClass = r.status === 'EXPIRED' || r.status === 'URGENT' ? 'urgent'
+                       : r.status === 'WARNING' ? 'warning' : 'normal';
+        const emoji    = r.status === 'EXPIRED' ? '❌'
+                       : r.status === 'URGENT'  ? '🚨'
+                       : r.status === 'WARNING' ? '⚠️' : '✅';
+        const daysText = r.daysLeft < 0
+                       ? `<strong style="color:#d32f2f;">已過期 ${Math.abs(r.daysLeft)} 天</strong>`
+                       : `剩餘 <strong>${r.daysLeft} 天</strong>`;
+
+        return `
+            <div class="batch-card ${cssClass}">
+                <h3>${emoji} ${r.location}</h3>
+                <div class="batch-info">
+                    <div>🔥 類型：<strong>${r.feType}</strong> &nbsp;|&nbsp; 📊 數量：<strong>${r.quantity} 個</strong></div>
+                    <div>⏰ 到期：<strong>${r.expiryDate}</strong>（${daysText}）</div>
+                    <div style="font-size:0.8rem;color:#bbb;margin-top:4px;">
+                        登記：${new Date(r.createdAt).toLocaleDateString('zh-HK')}
+                    </div>
+                </div>
+            </div>`;
+    }).join('');
+
+    updateBanner(records);
+}
+
+function updateBanner(records) {
+    const expired = records.filter(r => r.status === 'EXPIRED').length;
+    const urgent  = records.filter(r => r.status === 'URGENT').length;
+    const warning = records.filter(r => r.status === 'WARNING').length;
+    const banner  = document.getElementById('status-banner');
+
+    if (expired + urgent > 0) {
+        banner.className = 'status-banner red';
+        banner.innerHTML = `<h2>🚨 需要立即處理</h2>
+            <p>已過期：<strong>${expired} 個</strong>　緊急（7天內）：<strong>${urgent} 個</strong></p>`;
+    } else if (warning > 0) {
+        banner.className = 'status-banner orange';
+        banner.innerHTML = `<h2>⚠️ 需要留意</h2>
+            <p>有 <strong>${warning} 個</strong> 批次將在 14 天內到期</p>`;
+    } else if (records.length === 0) {
+        banner.className = 'status-banner orange';
+        banner.innerHTML = `<h2>📭 暫無記錄</h2><p>請點「📝 登記」開始掃描滅火器</p>`;
+    } else {
+        banner.className = 'status-banner green';
+        banner.innerHTML = `<h2>✅ 全部正常</h2>
+            <p>所有 <strong>${records.length} 個</strong> 批次均在 15 天以上</p>`;
+    }
+}
+
+// ================================================================
+// 報告生成（詳細版，適合貼到 WeChat）
+// ================================================================
+async function showReportModal() {
+    const records = await db.inspections.toArray();
+
+    // 重新計算狀態
+    const today = new Date(); today.setHours(0,0,0,0);
+    records.forEach(r => {
+        const exp = new Date(r.expiryDate); exp.setHours(0,0,0,0);
+        r.daysLeft = Math.ceil((exp - today) / 86400000);
+        r.status   = r.daysLeft < 0 ? 'EXPIRED'
+                   : r.daysLeft <= 7 ? 'URGENT'
+                   : r.daysLeft <= 14 ? 'WARNING' : 'VALID';
+    });
+
+    const report = generateReport(records);
+    document.getElementById('report-preview').textContent = report;
+    document.getElementById('report-modal').classList.add('active');
+}
+
+function generateReport(records) {
+    const today   = new Date().toLocaleDateString('zh-HK');
+    const expired = records.filter(r => r.status === 'EXPIRED');
+    const urgent  = records.filter(r => r.status === 'URGENT');
+    const warning = records.filter(r => r.status === 'WARNING');
+    const valid   = records.filter(r => r.status === 'VALID');
+
+    if (records.length === 0) {
+        return `📋 滅火器檢查報告\n日期：${today}\n\n暫無記錄。`;
+    }
+
+    let report = `📋 滅火器到期檢查報告
+日期：${today}
+
+━━━━━━━━━━━━━━━━━━━━━━
+📊 概況
+━━━━━━━━━━━━━━━━━━━━━━
+總記錄：${records.length} 個
+✅ 正常（15天以上）：${valid.length} 個
+⚠️ 警告（8-14天）：${warning.length} 個
+🚨 緊急（1-7天）：${urgent.length} 個
+❌ 已過期：${expired.length} 個
+
+━━━━━━━━━━━━━━━━━━━━━━
+📍 詳細清單
+━━━━━━━━━━━━━━━━━━━━━━`;
+
+    // 按狀態排序輸出
+    const priority = { EXPIRED: 0, URGENT: 1, WARNING: 2, VALID: 3 };
+    records.sort((a,b) => priority[a.status] - priority[b.status]);
+
+    records.forEach(r => {
+        const emoji    = r.status === 'EXPIRED' ? '❌'
+                       : r.status === 'URGENT'  ? '🚨'
+                       : r.status === 'WARNING' ? '⚠️' : '✅';
+        const daysText = r.daysLeft < 0
+                       ? `已過期 ${Math.abs(r.daysLeft)} 天`
+                       : `剩 ${r.daysLeft} 天`;
+        report += `\n\n${emoji} ${r.location}
+   類型：${r.feType}　數量：${r.quantity} 個
+   到期：${r.expiryDate}（${daysText}）`;
+    });
+
+    // 行動提示
+    report += `\n\n━━━━━━━━━━━━━━━━━━━━━━
+⚡ 需要行動
+━━━━━━━━━━━━━━━━━━━━━━`;
+
+    if (expired.length > 0) {
+        report += `\n❌ 立即更換：\n${expired.map(r => `   • ${r.location}`).join('\n')}`;
+    }
+    if (urgent.length > 0) {
+        report += `\n🚨 本週內處理：\n${urgent.map(r => `   • ${r.location}（剩 ${r.daysLeft} 天）`).join('\n')}`;
+    }
+    if (warning.length > 0) {
+        report += `\n⚠️ 兩週內跟進：\n${warning.map(r => `   • ${r.location}（剩 ${r.daysLeft} 天）`).join('\n')}`;
+    }
+    if (expired.length === 0 && urgent.length === 0 && warning.length === 0) {
+        report += `\n✅ 無緊急，所有記錄正常`;
+    }
+
+    report += `\n\n━━━━━━━━━━━━━━━━━━━━━━
+報告生成：${new Date().toLocaleString('zh-HK')}`;
+
+    return report;
+}
+
+function closeReportModal() {
+    document.getElementById('report-modal').classList.remove('active');
+}
+
+async function copyReport() {
+    const text = document.getElementById('report-preview').textContent;
+    try {
+        await navigator.clipboard.writeText(text);
+        showToast('✅ 已複製！打開 WeChat 貼上發給老闆');
+        closeReportModal();
+    } catch (e) {
+        showToast('❌ 複製失敗，請手動複製上方文字');
+    }
+}
+
+// ================================================================
+// 匯出 CSV
+// ================================================================
+async function exportCSV() {
+    const records = await db.inspections.toArray();
+    if (records.length === 0) { showToast('❌ 沒有數據可以匯出'); return; }
+
+    const rows = [
+        ['位置', '類型', '數量', '到期日期', '剩餘天數', '狀態', '登記日期'],
+        ...records.map(r => [
+            r.location, r.feType, r.quantity, r.expiryDate,
+            r.daysLeft,
+            r.status === 'EXPIRED' ? '已過期'
+            : r.status === 'URGENT'  ? '緊急'
+            : r.status === 'WARNING' ? '警告' : '正常',
+            new Date(r.createdAt).toLocaleDateString('zh-HK')
+        ])
+    ];
+
+    const csv = '\uFEFF' + rows.map(r => r.join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `FE_Report_${new Date().toISOString().split('T')[0]}.csv`;
+    link.click();
+
+    showToast('✅ 已匯出 CSV');
+}
+
+// ================================================================
+// Toast 提示
+// ================================================================
+function showToast(msg) {
+    document.querySelectorAll('.toast').forEach(t => t.remove());
+    const toast = document.createElement('div');
+    toast.className = 'toast';
+    toast.textContent = msg;
+    document.body.appendChild(toast);
+    setTimeout(() => toast.remove(), 3000);
+}
+
+// ================================================================
+// 初始化
+// ================================================================
+window.addEventListener('load', () => {
+    loadRecords();
+});
 </script>
 
 </body>
