@@ -424,7 +424,7 @@
         <!-- Step 1：拍照 -->
         <div id="step-1" class="register-step active">
             <h2>📸 拍照日期標籤</h2>
-            <p>對準滅火器檢查卡（DATE DE VALIDADE 那行），點「拍照」，系統自動識別日期。</p>
+            <p>拍照後，對照相片上的日期，在下方輸入到期日期。</p>
 
             <div class="camera-preview" id="camera-preview">
                 <span id="preview-placeholder">📷 拍照後顯示在這裡</span>
@@ -437,25 +437,35 @@
 
             <div class="btn-group">
                 <button class="btn-primary" onclick="openCamera()">📷 拍照</button>
-                <button class="btn-secondary" onclick="skipToManual()">✏️ 手動輸入日期</button>
+            </div>
+
+            <!-- 日期輸入（Step 1 直接顯示）-->
+            <div id="date-input-section" style="margin-top:20px;">
+                <div class="manual-date-section" style="background:#e8f5e9;border-color:#388e3c;">
+                    <label style="font-weight:700;color:#1a1a1a;font-size:1rem;">
+                        📅 輸入到期日期（DATE DE VALIDADE）
+                    </label>
+                    <input type="date" id="step1-date"
+                           style="margin-top:8px;width:100%;padding:14px;border:2px solid #388e3c;border-radius:8px;font-size:1.1rem;text-align:center;"
+                           onchange="setDateFromStep1(this.value)">
+                </div>
+            </div>
+
+            <div class="btn-group" style="margin-top:8px;">
+                <button class="btn-primary" id="step1-next-btn"
+                        onclick="goToStep(2)" disabled>✓ 下一步</button>
             </div>
         </div>
 
-        <!-- Step 2：確認日期 + 輸入位置 -->
+        <!-- Step 2：輸入位置 -->
         <div id="step-2" class="register-step">
-            <h2>✅ 確認日期 & 輸入位置</h2>
+            <h2>📍 輸入存放位置</h2>
 
-            <!-- OCR 結果 -->
-            <div class="ocr-result-card" id="ocr-result-card">
-                <div style="font-size:0.9rem;color:#666;">識別到期日期</div>
+            <!-- 顯示已選日期 -->
+            <div class="ocr-result-card">
+                <div style="font-size:0.9rem;color:#666;">到期日期</div>
                 <div class="ocr-result-date" id="ocr-date">--</div>
-                <button class="edit-button" onclick="goToStep(1)">🔄 重新拍照</button>
-            </div>
-
-            <!-- 如果 OCR 失敗，手動輸入日期 -->
-            <div class="manual-date-section" id="manual-date-section" style="display:none;">
-                <label>⚠️ 未能識別日期，請手動輸入：</label>
-                <input type="date" id="manual-date" onchange="setManualDate(this.value)">
+                <button class="edit-button" onclick="goToStep(1)">🔄 修改日期</button>
             </div>
 
             <!-- 輸入位置 -->
@@ -587,9 +597,8 @@
 
 <script>
 // ================================================================
-// OCR.space API Key（免費，不需信用卡）
+// 無需 OCR API — 拍照顯示大圖，用戶自己輸入日期
 // ================================================================
-const OCR_SPACE_API_KEY = 'K85507588588957';
 
 // ================================================================
 // 修復2：IndexedDB（替換 JavaScript 變數）
@@ -644,6 +653,13 @@ function openCamera() {
     document.getElementById('camera-input').click();
 }
 
+// 設置 Step 1 日期
+function setDateFromStep1(val) {
+    currentEntry.date = val;
+    document.getElementById('ocr-date').textContent = val;
+    document.getElementById('step1-next-btn').disabled = !val;
+}
+
 function handlePhotoCapture(event) {
     const file = event.target.files[0];
     if (!file) return;
@@ -652,147 +668,25 @@ function handlePhotoCapture(event) {
     reader.onload = (e) => {
         const imgData = e.target.result;
 
-        // 顯示預覽
+        // 只顯示大圖，讓用戶看清楚標籤日期
         const preview = document.getElementById('camera-preview');
         preview.innerHTML = `
-            <div class="ocr-loading">
-                <div class="spinner"></div>
-                <div>正在識別日期...</div>
-            </div>`;
+            <img src="${imgData}"
+                 style="max-width:100%;max-height:280px;border-radius:8px;cursor:pointer;"
+                 onclick="this.style.maxHeight=this.style.maxHeight==='none'?'280px':'none'"
+                 title="點擊放大">`;
 
-        performOCR(imgData);
+        showToast('📷 相片已載入，請對照上方相片輸入日期');
     };
     reader.readAsDataURL(file);
 }
 
 // ================================================================
-// OCR.space API（免費，不需信用卡）
-// 修復4：Regex 支援 DD-MM-YYYY 格式 + 搜尋 DATE DE VALIDADE
-// ================================================================
-async function performOCR(imageDataUrl) {
-    try {
-        // OCR.space 用 FormData 格式
-        const formData = new FormData();
-        formData.append('base64Image', imageDataUrl);
-        formData.append('apikey', OCR_SPACE_API_KEY);
-        formData.append('language', 'eng');       // 英文+葡文+數字
-        formData.append('isOverlayRequired', 'false');
-        formData.append('detectOrientation', 'true');
-        formData.append('scale', 'true');          // 提升小字準確率
-        formData.append('OCREngine', '2');         // Engine 2 對印刷字更準
-
-        const response = await fetch(
-            'https://api.ocr.space/parse/image',
-            {
-                method: 'POST',
-                body: formData
-            }
-        );
-
-        const data = await response.json();
-        console.log('OCR.space 回應：', data); // 調試用
-
-        // 檢查錯誤
-        if (data.IsErroredOnProcessing) {
-            console.error('OCR.space 錯誤：', data.ErrorMessage);
-            showOCRFailed();
-            return;
-        }
-
-        // 提取識別的文字
-        const fullText = data.ParsedResults?.[0]?.ParsedText || '';
-        console.log('OCR 原文：', fullText); // 調試用
-
-        const dateStr = extractExpiryDate(fullText);
-
-        if (dateStr) {
-            currentEntry.date = dateStr;
-            document.getElementById('ocr-date').textContent = dateStr;
-            document.getElementById('ocr-result-card').style.display = 'block';
-            document.getElementById('manual-date-section').style.display = 'none';
-            showToast('✅ 日期識別成功：' + dateStr);
-            goToStep(2);
-        } else {
-            showOCRFailed();
-        }
-
-    } catch (err) {
-        console.error('OCR 失敗：', err);
-        showOCRFailed();
-    }
-}
-
-function showOCRFailed() {
-    showToast('❌ 未能識別日期，請手動輸入');
-    currentEntry.date = '';
-    document.getElementById('ocr-result-card').style.display = 'none';
-    document.getElementById('manual-date-section').style.display = 'block';
-    document.getElementById('camera-preview').innerHTML =
-        '<span id="preview-placeholder">📷 拍照後顯示在這裡</span>';
-    goToStep(2);
-}
-
-// ================================================================
-// 修復4：日期提取邏輯（支援澳門消防標籤格式）
-// ================================================================
-function extractExpiryDate(text) {
-
-    // 優先：搜尋 DATE DE VALIDADE 後面的日期（最準確）
-    const validityMatch = text.match(
-        /DATE\s*DE\s*VALIDADE[\s\S]{0,60}?(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{4})/i
-    );
-    if (validityMatch) {
-        return parseDDMMYYYY(validityMatch[1]);
-    }
-
-    // 備選1：搜尋所有 DD-MM-YYYY 格式日期，取最後一個（通常是到期日）
-    const allDates = [...text.matchAll(/(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{4})/g)];
-    if (allDates.length > 0) {
-        // 取最後一個日期（到期日通常在充裝日後面）
-        return parseDDMMYYYY(allDates[allDates.length - 1][1]);
-    }
-
-    // 備選2：搜尋 YYYY-MM-DD 格式
-    const isoMatch = text.match(/(\d{4}[\/\-]\d{1,2}[\/\-]\d{1,2})/);
-    if (isoMatch) {
-        const parts = isoMatch[1].split(/[\/\-]/);
-        return `${parts[0]}-${parts[1].padStart(2,'0')}-${parts[2].padStart(2,'0')}`;
-    }
-
-    return null;
-}
-
-// DD-MM-YYYY → YYYY-MM-DD
-function parseDDMMYYYY(str) {
-    const parts = str.split(/[\/\-\.]/);
-    if (parts.length !== 3) return null;
-    const day   = parts[0].padStart(2, '0');
-    const month = parts[1].padStart(2, '0');
-    const year  = parts[2];
-    // 基本驗證
-    if (year.length !== 4) return null;
-    if (parseInt(month) > 12 || parseInt(day) > 31) return null;
-    return `${year}-${month}-${day}`;
-}
-
-// ================================================================
 // Step 2：確認日期 + 輸入位置
 // ================================================================
-function setManualDate(val) {
-    currentEntry.date = val;
-    document.getElementById('ocr-date').textContent = val;
-    checkStep2Ready();
-}
-
 function checkStep2Ready() {
-    const hasDate     = currentEntry.date !== '';
     const hasLocation = document.getElementById('location-input').value.trim() !== '';
-    // 如果手動輸入日期，也要更新 currentEntry
-    const manualDate  = document.getElementById('manual-date').value;
-    if (manualDate && !currentEntry.date) {
-        currentEntry.date = manualDate;
-    }
-    document.getElementById('step2-next-btn').disabled = !(currentEntry.date && hasLocation);
+    document.getElementById('step2-next-btn').disabled = !hasLocation;
 }
 
 // ================================================================
@@ -852,13 +746,11 @@ async function submitRegistration() {
 function resetRegistration() {
     currentEntry = { date: '', location: '', type: '', quantity: 1 };
     document.getElementById('camera-input').value = '';
-    document.getElementById('preview-image').style.display = 'none';
     document.getElementById('camera-preview').innerHTML =
         '<span id="preview-placeholder">📷 拍照後顯示在這裡</span>';
+    document.getElementById('step1-date').value = '';
+    document.getElementById('step1-next-btn').disabled = true;
     document.getElementById('ocr-date').textContent = '--';
-    document.getElementById('ocr-result-card').style.display = 'block';
-    document.getElementById('manual-date-section').style.display = 'none';
-    document.getElementById('manual-date').value = '';
     document.getElementById('location-input').value = '';
     document.getElementById('final-type').value = '';
     document.getElementById('final-quantity').value = '1';
